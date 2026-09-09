@@ -105,8 +105,8 @@ macOS 打成 DMG / Package a DMG on macOS:
 hdiutil create -volname VJVision -srcfolder dist/VJVision.app -ov -format UDZO VJVision-macos.dmg
 ```
 
-> macOS 的 DMG 由 GitHub Actions 自动构建：推送 `v*` 标签后，云端 Mac（Intel + Apple Silicon）自动打包并上传到对应 Release，无需本地有 Mac。
-> macOS DMGs are built automatically by GitHub Actions: pushing a `v*` tag builds on cloud Macs (Intel + Apple Silicon) and uploads both DMGs to the Release — no local Mac required.
+> macOS 的 DMG **不由本地构建**：发布 Release（推送 `v*` 标签）后，GitHub Actions 在云端 Mac（Intel + Apple Silicon）自动打包并把两个 DMG 上传到对应 Release——无需本地有 Mac，也无需手动上传；排队高峰可能等待数十分钟，构建完成后 DMG 自动出现在 Release 资产中。
+> macOS DMGs are **not built locally**: publishing a Release (pushing a `v*` tag) triggers GitHub Actions on cloud Macs (Intel + Apple Silicon), which build and upload both DMGs automatically — no local Mac and no manual upload. Queue peaks can mean a tens-of-minutes wait; the DMGs appear in the Release assets once finished.
 
 ## 数据目录 / Data Directories
 
