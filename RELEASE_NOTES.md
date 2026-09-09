@@ -121,6 +121,22 @@
 - 默认窗口大小按内容自适应：所有面板一屏完整显示，无需滚动（窗口拖小时滚动条仍会自动出现）
 - 移除字体下拉框下方的示例文字行；字体缺字检测保留，缺字警告改到日志面板显示
 
+### English
+
+#### GPU-accelerated rendering
+- New SDL2 GPU render path for the visualizer (`pygame._sdl2.video.Renderer`, accelerated + vsync): cover rotation, background scaling and spectrum drawing all use GPU textures; vsync eliminates tearing.
+- New **GPU hardware acceleration** toggle in the console's display section; the visualizer restarts automatically on switch, and the preference is persisted. GPU init failure falls back to software rendering automatically.
+- **Native-resolution fullscreen**: DPI-aware + desktop fullscreen, so 4K/2.5K screens no longer fall back to 640×480.
+- Fixed background mosaic/banding from default nearest-neighbour texture scaling (bilinear hint enabled); fixed a half-black screen caused by the overlay ignoring the alpha channel.
+
+#### Demo mode moved to the console
+- The old D-key hotkey is removed; demo mode is now a **checkbox** in the display section (rotates random covers without audio input).
+- Fixed the GPU/demo checkboxes showing literal class names instead of labels.
+
+#### Console UI
+- Default window size fits every panel on one screen (scrollbars still appear when shrunk).
+- Removed the sample-text line under the font dropdown; missing-glyph detection stays, with warnings moved to the log panel.
+
 ---
 
 ## v1.1.4-beta (2026-09-08)
@@ -132,6 +148,17 @@
 - 控制台窗口标题、所有按钮/标签/状态文本、对话框、可视化窗口状态文案均双语化
 - **PEAK 指示灯**：无论何种语言均显示 `PEAK`
 - 可视化窗口状态文案（Listening / Mixing / Matching / No match / Pending）随语言切换
+
+### English
+
+#### Bilingual UI
+- New `vjvision/i18n.py` module with 91 translation keys covering the whole UI in 中文 / English.
+- Language dropdown added to the top-right of the console; switching applies immediately and is persisted across restarts.
+- Window title, every button/label/status text, dialogs and visualizer status strings are localized.
+- The **PEAK** indicator always shows `PEAK` regardless of language.
+- Visualizer status text (Listening / Mixing / Matching / No match / Pending) switches with the language.
+
+---
 
 ## v1.1.3-beta (2026-09-08)
 
@@ -151,6 +178,23 @@
 ### 指纹重新分析
 - 117 首歌全部用当前调优参数（wratio=0.25, fan=3, amp_min=15）重新生成指纹
 
+### English
+
+#### Faster cross-fade switching
+- Recognition interval `match_interval` reduced from 6 s to 4 s.
+- **Recognition doubles during mixes (pulse)**: interval halves again to ~2 s, catching the new track's confidence climb sooner.
+- Mix confirmation threshold `MIX_MIN_CONFIDENCE` lowered from 0.40 to 0.30 (new-track confidence is often diluted to 0.30–0.38 in long cross-fades; 0.40 stalled in "Mix hold").
+- Measured: long cross-fades confirm in ~15 s instead of ~28 s.
+
+#### First-track recognition
+- First-track confirmation threshold lowered from 0.30 to 0.25, shortening startup wait.
+
+#### Fingerprint error visibility
+- Fixed multiprocessing workers silently swallowing exceptions: workers now return the error string to the main process, which logs the real failure at `ERROR` level (previously users only saw "Failed: xxx.flac" with no cause — e.g. old pydub lacking 24-bit FLAC support).
+
+#### Fingerprint re-analysis
+- All 117 tracks re-fingerprinted with the current tuned parameters (wratio=0.25, fan=3, amp_min=15).
+
 ---
 
 ## v1.1.2-beta (2026-09-08)
@@ -159,6 +203,12 @@
 - **第一首歌跳过 tentative 脉动预览**：在还没有任何确认歌曲时，置信度 0.06–0.30 的暂认匹配不再锁定显示，避免低置信度错误匹配（如 conf=0.07 的错误歌曲）触发脉动并挡住真正的歌曲
 - 第一首歌必须等到置信度 ≥ 阈值才确认，确认后 tentative 机制照常工作（用于混音过渡检测）
 
+### English
+
+#### First-track false-positive fix
+- **The first track skips the tentative pulse preview**: before any song is confirmed, tentative matches in the 0.06–0.30 band no longer lock the display, so a low-confidence wrong match (e.g. conf=0.07) can't pulse and block the real song.
+- The first track is only confirmed once confidence reaches the threshold; after confirmation the tentative mechanism works as normal for mix-transition detection.
+
 ---
 
 ## v1.1.1-beta (2026-09-08)
@@ -166,6 +216,12 @@
 ### 关闭控制台后视觉窗口残留修复
 - **visualizer 子进程增加父进程存活检测**：每 ~0.5s 检查父进程是否存活，父进程被强制终止（如关闭控制台窗口）时子进程自动 `pygame.quit()` 退出，不再变成孤儿进程
 - **Debug UI 绑定 `WM_DELETE_WINDOW`**：点击窗口 X 按钮走正常 quit 流程，确保 main.py 的 `finally` 块（含 `viz_mgr.stop()`）被执行
+
+### English
+
+#### Orphan visualizer fix
+- **Parent-liveness check in the visualizer subprocess**: every ~0.5 s it checks whether the parent is alive; if the parent is force-killed (e.g. console closed), the child calls `pygame.quit()` automatically instead of lingering as an orphan.
+- **Debug UI binds `WM_DELETE_WINDOW`**: clicking the window's X follows the normal quit path, ensuring main.py's `finally` block (including `viz_mgr.stop()`) runs.
 
 ---
 
@@ -186,3 +242,21 @@
 
 ### Python 3.13+ 兼容
 - 注入 numpy 版 `audioop` shim，解决 Python 3.14 移除 stdlib `audioop` 后 pydub 导入崩溃的问题
+
+### English
+
+#### Project rename
+- `VJ-Visual` → `VJVision`; package directory `vjvisual` → `vjvision`, all references updated.
+- Config paths: `LOG_FILE=vjvision.log`, `PREFS_DIR=VJVision`.
+
+#### Mix-pulse mechanism
+- New tentative zone: a different-song signal in the 0.06–0.30 confidence band triggers the "mixing" state, pulsing the current cover to indicate an ongoing track change.
+- Mix hold: the display only switches after 2 consecutive high-confidence hits, preventing false cuts.
+
+#### Fingerprint pipeline
+- Dejavu parameters tuned (wratio 0.5→0.25, fan 5→3, amp_min 10→15, peak_neighborhood 10→20), cutting hash volume by ~85–90%.
+- Decoding switched to soundfile (libsndfile) with native 24-bit FLAC support; pydub/ffmpeg dependency removed.
+- Multiprocessing workers reuse a single FingerprintDB instance, eliminating per-track dejavu init overhead.
+
+#### Python 3.13+ compatibility
+- Injected a numpy-based `audioop` shim to fix pydub import crashes after Python 3.14 removed the stdlib `audioop` module.

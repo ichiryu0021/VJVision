@@ -19,7 +19,7 @@ VJVision 的可视化输出是一个 **multiprocessing spawn 出的子进程**�
   - 启动：项目根目录 `python main.py`（后台运行）
   - 杀干净：`Get-Process python | Stop-Process -Force; Start-Sleep 2`（改代码后必须全杀再启，否则旧进程会在退出时用旧配置回写 prefs）
   - 正常应有 2-3 个 python 进程（main 控制台 + visualizer + 可能的 indexer）
-- 用户配置：`%APPDATA%\VJVision\prefs.json`（不在 U 盘/项目里）。可视化子进程不继承内存 SETTINGS，靠 `load_prefs()` 读它。
+- 用户配置：打包版在 **exe 旁 `data\prefs.json`**（便携，跟 data 文件夹走；2026-09-09 起，旧 `%APPDATA%\VJVision\prefs.json` 仅作一次性迁移源）；开发模式在项目根 `cache\prefs.json`。可视化子进程不继承内存 SETTINGS，靠 `load_prefs()` 读它。
 
 ## 2. GPU 渲染 API 事实（pygame-ce 2.5.8 / SDL 2.32 / Python 3.14，已实测）
 

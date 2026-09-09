@@ -95,7 +95,9 @@ Write-Host "构建完成: dist\VJVision.exe ($exeSize MB)" -ForegroundColor Gree
 Write-Host "[3/4] 提交并推送到 GitHub..." -ForegroundColor Cyan
 git add vjvision/__init__.py
 git commit -m "release: v$Version"
-git push origin master
+# Push the CURRENT branch (active development happens on feature branches;
+# master is not always the release target).
+git push origin HEAD
 
 # --- 创建 GitHub Release ---
 Write-Host "[4/4] 创建 GitHub Release..." -ForegroundColor Cyan
