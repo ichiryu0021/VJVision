@@ -95,7 +95,7 @@ Stop-Process -Name VJVision -Force -ErrorAction SilentlyContinue
    gh release view v1.2.2-beta --json assets,isPrerelease,targetCommitish | ConvertFrom-Json
    ```
    → `isPrerelease: True`、asset `VJVision.exe` ~109.7MB、`state: uploaded`。
-5. **mac DMG 不用管**：tag 推送触发 `.github/workflows/build-macos.yml`，云端 Mac（arm64 + x86_64）自动构建 DMG 并 `gh release upload --clobber` 到同一 Release。本地无需 Mac、无需手动上传，也**不要把等 mac 构建当交付阻塞项**（排队可能数十分钟）；Windows exe 是唯一本地产物。
+5. **mac 版本与本流程无关**：官方 Release 只交付 Windows exe；macOS 打包版由 **mac 分支的维护者在 Mac 上自行构建发布**。不要在 Release 里等待或上传 mac 资产，也不要承诺 DMG。
 6. 交付时给用户：Release URL + 产物位置 `dist\VJVision.exe`（可直接拷 U 盘）+ 现场回归要点。
 
 ## 6. 常见返工原因（都真实发生过）

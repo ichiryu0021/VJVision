@@ -28,7 +28,7 @@ VJVision listens to the DJ booth output, auto-recognises the playing track, and 
 
 | 项目 Item | 要求 Requirement |
 |------|------|
-| 操作系统 OS | Windows 10 / 11（exe）；macOS 11+，Intel 与 Apple Silicon 均提供 DMG / DMGs for both Intel & Apple Silicon |
+| 操作系统 OS | Windows 10 / 11（官方提供 exe）；macOS 11+ 支持源码运行（Intel / Apple Silicon，打包版由 mac 分支提供）/ Official exe for Windows 10/11; macOS 11+ runs from source (Intel / Apple Silicon; packaged builds via the mac branch) |
 | 运行依赖 Runtime | 无需安装 Python 或任何解码器（ffmpeg 已内置）/ No Python or codec install needed (ffmpeg bundled) |
 | 源码开发 Dev | Python 3.13+；macOS 需先 `brew install portaudio` |
 | 音频输入 Audio | Windows：声卡 / 虚拟音频线（WASAPI / DirectSound / MME）；macOS：USB 声卡 / 麦克风直连可用，内录系统声音需 BlackHole（见下文） |
@@ -42,14 +42,10 @@ VJVision listens to the DJ booth output, auto-recognises the playing track, and 
 2. 首次启动在 exe 同级目录生成 `data/`（指纹库、设置、日志）。
    First launch creates a `data/` folder next to the exe (DB, settings, log).
 
-**macOS**
-1. 从 [Releases](https://github.com/ichiryu0021/VJVision/releases) 按芯片下载 DMG：M 系列芯片 → `VJVision-macos-arm64.dmg`；Intel → `VJVision-macos-x86_64.dmg`。
-   Download the DMG matching your Mac: Apple Silicon → `VJVision-macos-arm64.dmg`; Intel → `VJVision-macos-x86_64.dmg`.
-2. 打开 DMG，把 **VJVision** 拖入「应用程序 / Applications」。首次启动请**右键 → 打开**（应用未签名，双击会被 Gatekeeper 拦截，右键打开一次后正常）。
-   Drag **VJVision** to Applications. First launch: **right-click → Open** (unsigned app; double-click is blocked by Gatekeeper until opened once via right-click).
-3. 首次运行在 `VJVision.app` 同级目录生成 `data/`。
-   First launch creates a `data/` folder next to `VJVision.app`.
-4. **识别电脑自己播放的声音**：macOS 无系统内录 API，需安装一次免费开源的 [BlackHole](https://existential.audio/blackhole/) 虚拟声卡（`brew install --cask blackhole-2ch`），在「音频 MIDI 设置」建多输出设备（耳机 + BlackHole 同时出声），再在 VJVision 设备下拉选 BlackHole。USB 声卡 / 麦克风 / 线路输入无需额外安装，直接选择；首次采集时请允许系统弹出的**麦克风权限**。
+**macOS**（官方 Releases 只提供 Windows exe；mac 打包版由 mac 分支的维护者构建，也可自行从源码运行 / Official Releases ship the Windows exe only; mac-packaged builds come from maintainers of the mac branch — or run from source yourself）
+1. 从源码运行：`brew install portaudio` → `pip install -r requirements.txt` → `python main.py`；自行打包成 `.app`/DMG 见下文「打包」。
+   Run from source: `brew install portaudio` → `pip install -r requirements.txt` → `python main.py`; see Build below to package an `.app`/DMG yourself.
+2. **识别电脑自己播放的声音**：macOS 无系统内录 API，需安装一次免费开源的 [BlackHole](https://existential.audio/blackhole/) 虚拟声卡（`brew install --cask blackhole-2ch`），在「音频 MIDI 设置」建多输出设备（耳机 + BlackHole 同时出声），再在 VJVision 设备下拉选 BlackHole。USB 声卡 / 麦克风 / 线路输入无需额外安装，直接选择；首次采集时请允许系统弹出的**麦克风权限**。
    **To capture the Mac's own audio**: install the free [BlackHole](https://existential.audio/blackhole/) virtual driver once, create a Multi-Output Device (headphones + BlackHole) in Audio MIDI Setup, then pick BlackHole in VJVision. USB soundcards / mics / line-in work directly. Allow the **Microphone permission** prompt on first capture.
 
 ## 使用说明 / Usage Guide
@@ -105,8 +101,8 @@ macOS 打成 DMG / Package a DMG on macOS:
 hdiutil create -volname VJVision -srcfolder dist/VJVision.app -ov -format UDZO VJVision-macos.dmg
 ```
 
-> macOS 的 DMG **不由本地构建**：发布 Release（推送 `v*` 标签）后，GitHub Actions 在云端 Mac（Intel + Apple Silicon）自动打包并把两个 DMG 上传到对应 Release——无需本地有 Mac，也无需手动上传；排队高峰可能等待数十分钟，构建完成后 DMG 自动出现在 Release 资产中。
-> macOS DMGs are **not built locally**: publishing a Release (pushing a `v*` tag) triggers GitHub Actions on cloud Macs (Intel + Apple Silicon), which build and upload both DMGs automatically — no local Mac and no manual upload. Queue peaks can mean a tens-of-minutes wait; the DMGs appear in the Release assets once finished.
+> Windows 官方 exe 在 Windows 上用上面的命令本地构建；macOS 的 `.app` / DMG 由 **mac 分支的维护者在 Mac 上按同样步骤构建**（再用 `hdiutil` 打 DMG），本仓库官方 Release 不提供 mac 二进制。
+> The official Windows exe is built locally on Windows with the command above; macOS `.app`/DMG packages are built on a Mac by **maintainers of the mac branch** using the same steps (plus `hdiutil` for the DMG). Official Releases in this repository do not ship mac binaries.
 
 ## 数据目录 / Data Directories
 
