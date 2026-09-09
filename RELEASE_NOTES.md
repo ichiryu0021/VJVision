@@ -14,6 +14,8 @@
   - 并行轮次结束后，**失败文件自动进入单 worker 低内存重试**（峰值内存从"多首歌叠加"降到一首歌），恢复的文件记 `Recovered in low-memory pass`，进度显示 `Low-memory retry x/y`；真正损坏的文件才保持 Failed
   - worker 数改为按可用内存收敛（每 worker 约 800 MB 预算，长曲 complex128 频谱 + float64 解码峰值实测 600–900 MB），高核数机器不再默认堆满 12 个 worker；整库分析（`index_library`）与文件夹分析（`index_files`）路径行为对齐
   - 用户在重试阶段点取消同样即时生效
+- **脉动触发置信度默认值 0.06 → 0.13**：减少安静段落、多版本歌曲（原唱/伴奏/中日版）指纹串扰引起的误脉动预览；已在面板自定义过该值的用户不受影响（`prefs.json` 保存值优先），新用户/未改动过的用户直接使用新默认
+- **设置改为便携存储，跟 `data\` 文件夹走**：`prefs.json`（音频设备、音乐目录、置信度阈值、可视化选项、语言等全部设置）从本机 `%APPDATA%\VJVision\` 移到 exe 旁的 `data\prefs.json`——在 A 电脑调好参数、分析完曲库，把 exe + `data\` 整个拷到 B 电脑/U 盘，所有设置原样带走；升级时若检测到旧版 `%APPDATA%` 里的 prefs 会**自动迁移一次**，已调参数不丢失（注意：音频设备索引与本机声卡相关，换电脑后可能需要在下拉框重选一次，设备缺失时软件正常容错）
 
 ### English
 
@@ -23,6 +25,8 @@
   - After the parallel pass, **failed files are automatically retried in a single-worker, low-memory pass** (peak memory drops from "several songs at once" to one song); recovered files are logged as `Recovered in low-memory pass` with progress showing `Low-memory retry x/y`; only genuinely corrupt files stay Failed.
   - Worker count now scales with available RAM (~800 MB budget per worker; measured peak is 600–900 MB for the complex128 spectrogram + float64 decode on long tracks), so high-core machines no longer default to a full 12 workers; whole-library analysis (`index_library`) and folder analysis (`index_files`) now behave identically.
   - Cancelling during the retry pass takes effect immediately as well.
+- **Pulse-trigger confidence default raised 0.06 → 0.13**: fewer spurious pulsing previews caused by quiet passages or fingerprint crosstalk between multi-version songs (vocal / instrumental / CN / JP). Users who already customised the value are unaffected (saved `prefs.json` takes precedence); new users and unmodified installs get the new default directly.
+- **Settings are now portable and travel with the `data\` folder**: `prefs.json` (audio device, music folder, confidence thresholds, visual options, language — everything) moved from the per-machine `%APPDATA%\VJVision\` to `data\prefs.json` next to the exe. Tune settings and analyse the library on PC A, copy the exe + `data\` folder to PC B / a USB stick, and every setting comes along; on upgrade, an existing legacy `%APPDATA%` prefs file is **migrated automatically once**, so tuned values are not lost. (Caveat: the audio-device index refers to the local sound card — on a different PC you may need to re-pick it in the dropdown; a missing/invalid device is tolerated gracefully.)
 
 ---
 

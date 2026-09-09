@@ -484,9 +484,9 @@ class MatcherThread(threading.Thread):
         # --- Two-tier confidence gate -----------------------------------
         # All three floors are user-tunable in the Debug UI's advanced
         # (red) confidence section; the values below are just defaults.
-        # Tier 1 (noise floor): confidence < tentative (0.06) → pure hash
+        # Tier 1 (noise floor): confidence < tentative (0.13) → pure hash
         #   collisions from silence / transients.  Reject outright.
-        # Tier 2 (tentative/脉动): tentative (0.06) ≤ confidence < accept
+        # Tier 2 (tentative/脉动): tentative (0.13) ≤ confidence < accept
         #   (0.30 for switches, 0.25 for the first track) → likely a real
         #   match but the hash count is diluted (multi-version songs,
         #   quiet capture, etc.).  A DIFFERENT song here starts a pulsing
@@ -627,7 +627,7 @@ class MatcherThread(threading.Thread):
             # Once a tentative preview is on screen, LOCK to that song —
             # don't flip-flop between competing versions every query.
             # Multi-version songs (vocal / Inst / CN / JP …) constantly
-            # trade the top slot in the 0.06-0.30 band, so without the
+            # trade the top slot in the 0.13-0.30 band, so without the
             # lock the display bounces.  We hold the first tentative
             # song until a ≥0.30 hit arrives (either confirming it or
             # replacing it with a different confirmed song).
@@ -807,7 +807,7 @@ class MatcherThread(threading.Thread):
             # A mix makes hash counts noisy (two songs' fingerprints
             # overlap), so we raise the confidence bar for switching —
             # a ≥0.30 hit is a stronger signal that the incoming song has
-            # actually taken over than the tentative 0.06 floor, while
+            # actually taken over than the tentative 0.13 floor, while
             # still being reachable when the new track's fingerprints are
             # diluted by the outgoing track during a long cross-fade.
             # (0.40 was too strict: long mixes often peak at 0.30–0.38.)

@@ -33,11 +33,9 @@ def _compute_base_dirs() -> tuple[Path, Path, Path, Path]:
       the exe: fingerprint DB, cover cache, song-path index.  Frozen it
       sits next to the exe so analysing on PC A and copying the folder to
       PC B carries every analysed artifact along.
-    * ``prefs_dir`` — **NOT** portable.  Per-user, per-machine storage for
-      things that depend on local hardware (audio device index, monitor
-      choice).  Lives in ``%APPDATA%/VJVision/`` so the same exe on a
-      USB drive auto-restores its last-used device on the same PC, but
-      doesn't pollute PC B with PC A's PortAudio indexes.
+    * ``prefs_dir`` — LEGACY per-user location (``%APPDATA%/VJVision/``
+      etc.).  prefs.json now lives in the portable ``data_dir``; this
+      path is only consulted once to migrate an old prefs file over.
     """
     if getattr(sys, "frozen", False):  # PyInstaller
         exe_dir = Path(sys.executable).resolve().parent
@@ -79,10 +77,14 @@ SONG_PATHS_DB = CACHE_DIR / "song_paths.sqlite"
 COVER_CACHE = CACHE_DIR / "covers"
 TEMP_AUDIO = CACHE_DIR / "tmp_capture.wav"
 LOG_FILE = CACHE_DIR / "vjvision.log"
-# prefs.json lives in %APPDATA%\VJVision\ — NOT on the U盘.  This lets
-# the same exe auto-restore its last-used audio device on the same PC,
-# but doesn't carry PC A's PortAudio indexes over to PC B.
-PREFS_FILE = PREFS_DIR / "prefs.json"
+# prefs.json travels WITH the portable data folder (alongside the
+# fingerprint DB, covers and log): analysing/tuning on PC A and copying
+# the exe + data\ to PC B carries every setting — including the tuned
+# confidence thresholds.  PREFS_DIR (%APPDATA%\VJVision) is only the
+# LEGACY location; an existing file there is migrated once on load
+# (see load_prefs).
+PREFS_FILE = CACHE_DIR / "prefs.json"
+LEGACY_PREFS_FILE = PREFS_DIR / "prefs.json"
 
 # Make sure working dirs exist at import time.
 for _p in (CACHE_DIR, COVER_CACHE, PREFS_DIR):
@@ -122,7 +124,7 @@ class CaptureConfig:
                                      # FIRST track (nothing displayed yet).
                                      # Deliberately lower than the switch
                                      # threshold so startup populates fast.
-    tentative_min_confidence: float = 0.06
+    tentative_min_confidence: float = 0.13
                                      # noise floor AND pulse trigger: a
                                      # different song at/above this while a
                                      # track is shown starts the pulsing
@@ -199,11 +201,11 @@ def save_prefs() -> None:
     human-editable and forward-compatible with new Settings fields.
     """
     prefs = {
-        # audio_device IS persisted — but prefs.json itself lives in
-        # %APPDATA%\VJVision\ (see PREFS_FILE), NOT on the USB drive.
-        # So the same exe auto-restores its last-used device on the same
-        # PC, while PC B gets a clean "pick your device" experience since
-        # its %APPDATA%\VJVision\prefs.json doesn't exist yet.
+        # prefs.json lives in the PORTABLE data folder (see PREFS_FILE),
+        # so every setting — audio device, tuned confidence thresholds,
+        # visual options — travels with the exe + data\ copy.  On a
+        # different PC the audio device index may need re-selecting in
+        # the dropdown; the app tolerates a missing/invalid device.
         "audio_device": SETTINGS.audio_device,
         "music_dir": str(SETTINGS.music_dir),
         "visualizer_display": SETTINGS.visualizer_display,
@@ -244,7 +246,21 @@ def load_prefs() -> None:
     :class:`Settings` dataclass always win when no saved value is present.
     """
     if not PREFS_FILE.is_file():
-        return
+        # One-time migration: prefs used to be per-machine in
+        # %APPDATA%\\VJVision\\prefs.json.  They now travel with the
+        # portable data folder — carry an existing legacy file over once
+        # so tuned thresholds/devices are not lost on upgrade.
+        if LEGACY_PREFS_FILE.is_file():
+            try:
+                import shutil
+                shutil.copy2(LEGACY_PREFS_FILE, PREFS_FILE)
+                log.info("Migrated prefs from legacy %s to portable %s",
+                         LEGACY_PREFS_FILE, PREFS_FILE)
+            except OSError as exc:
+                log.warning("Could not migrate legacy prefs %s: %s",
+                            LEGACY_PREFS_FILE, exc)
+        if not PREFS_FILE.is_file():
+            return
     try:
         with open(PREFS_FILE, "r", encoding="utf-8") as f:
             prefs = json.load(f)

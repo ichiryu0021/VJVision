@@ -76,7 +76,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "conf.first": "第一首置信度：",
         "conf.first_hint": "认出第一首歌的门槛（默认 0.25 · 范围 0.05–0.95）",
         "conf.tentative": "脉动触发置信度：",
-        "conf.tentative_hint": "切歌时先进入脉动预览的门槛（默认 0.06 · 范围 0.05–0.95）",
+        "conf.tentative_hint": "切歌时先进入脉动预览的门槛（默认 0.13 · 范围 0.05–0.95）",
         "conf.switch": "切歌确认置信度：",
         "conf.switch_hint": "从脉动真正切到下一首的门槛（默认 0.30 · 范围 0.05–0.95）",
 
@@ -216,7 +216,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "conf.first": "First-track confidence:",
         "conf.first_hint": "floor to accept the first song (default 0.25 · range 0.05–0.95)",
         "conf.tentative": "Pulse-trigger confidence:",
-        "conf.tentative_hint": "floor that starts the pulsing preview on a new song (default 0.06 · range 0.05–0.95)",
+        "conf.tentative_hint": "floor that starts the pulsing preview on a new song (default 0.13 · range 0.05–0.95)",
         "conf.switch": "Switch-confirm confidence:",
         "conf.switch_hint": "floor to actually switch from pulse to the next song (default 0.30 · range 0.05–0.95)",
 
