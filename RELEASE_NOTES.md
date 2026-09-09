@@ -6,6 +6,26 @@
 > **格式约定 / Format**：每个版本都包含中文与英文两段（中文在前，英文在 `### English` 段），内容一一对应、同步维护。
 > Each version contains both a Chinese block and an `### English` block covering the same changes.
 
+## v1.2.2-beta (2026-09-09)
+
+### 稳定性：两个现场日志发现的崩溃/错误修复
+- **修复待机画面崩溃**（打包版弹窗 `Only 24-bit or 32-bit surfaces can be smooth scaled`）：GPU 渲染路径直接用 SDL2 窗口建窗、没有 `set_mode`，`convert_alpha()` 不可用，导致待机 LOGO/封面 PNG 以 8 位调色板表面原样加载，而 `smoothscale` 只接受 24/32 位表面——缩放待机 LOGO 时直接崩溃（冻结版多进程引导随后报 `'NoneType' object has no attribute 'write'` 为次生错误）。现在 8 位表面会手动提升为 32 位透明表面，待机 LOGO、封面缩略图、模糊背景与主色提取全部覆盖；`smoothscale` 调用点同时做防御性位深规范化
+- **修复并行曲库分析内存耗尽**：多 worker 同时分析时（实测 12 worker、757 首）长曲 FFT 峰值内存叠加触发 `MemoryError`，失败文件此前被永久标记为 Failed、不再重试。现在：
+  - 并行轮次结束后，**失败文件自动进入单 worker 低内存重试**（峰值内存从"多首歌叠加"降到一首歌），恢复的文件记 `Recovered in low-memory pass`，进度显示 `Low-memory retry x/y`；真正损坏的文件才保持 Failed
+  - worker 数改为按可用内存收敛（每 worker 约 800 MB 预算，长曲 complex128 频谱 + float64 解码峰值实测 600–900 MB），高核数机器不再默认堆满 12 个 worker；整库分析（`index_library`）与文件夹分析（`index_files`）路径行为对齐
+  - 用户在重试阶段点取消同样即时生效
+
+### English
+
+#### Stability: two crash/error fixes from field logs
+- **Fixed standby-screen crash** (packaged-build popup `Only 24-bit or 32-bit surfaces can be smooth scaled`): the GPU render path creates its window directly via SDL2 with no `set_mode`, so `convert_alpha()` is unavailable and the standby-LOGO/cover PNG stays an 8-bit paletted surface — which `smoothscale` rejects, crashing while scaling the standby logo (the frozen-build follow-up `'NoneType' object has no attribute 'write'` is a secondary multiprocessing-boot error). 8-bit surfaces are now manually promoted to 32-bit RGBA surfaces, covering the standby logo, cover thumbnails, blurred background and dominant-colour extraction; every `smoothscale` call site also normalises bit-depth defensively.
+- **Fixed memory exhaustion during parallel library analysis**: with many workers in parallel (observed: 12 workers, 757 songs), simultaneous peak-FFT allocations of long tracks triggered `MemoryError`, and failed files were permanently marked Failed with no retry. Now:
+  - After the parallel pass, **failed files are automatically retried in a single-worker, low-memory pass** (peak memory drops from "several songs at once" to one song); recovered files are logged as `Recovered in low-memory pass` with progress showing `Low-memory retry x/y`; only genuinely corrupt files stay Failed.
+  - Worker count now scales with available RAM (~800 MB budget per worker; measured peak is 600–900 MB for the complex128 spectrogram + float64 decode on long tracks), so high-core machines no longer default to a full 12 workers; whole-library analysis (`index_library`) and folder analysis (`index_files`) now behave identically.
+  - Cancelling during the retry pass takes effect immediately as well.
+
+---
+
 ## v1.3.0-beta (2026-09-09)
 
 ### 识别置信度可调（高级选项）

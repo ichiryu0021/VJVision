@@ -784,63 +784,138 @@ class FingerprintDB:
         log.info("index_files: dispatching %d jobs → %d workers", len(todo), n_workers)
 
         t0 = time.time()
-        last_done = 0
-        last_t = t0
         with _mp.Pool(n_workers, initializer=_init_worker) as pool:
-            for path_str, song_name, hashes, file_hash, err in pool.imap_unordered(
-                FingerprintDB._mp_fingerprint_worker, todo, chunksize=4
-            ):
-                if self._cancel_flag:
-                    pool.terminate()
-                    if progress:
-                        progress(done + skip_count, total, "Cancelled by user")
-                    log.info("index_files: cancelled at %d/%d", done, total)
-                    return new_count
-                done += 1
-                now = time.time()
-                elapsed_total = now - t0
-                elapsed_this = now - last_t
-                last_t = now
-                per_done = elapsed_total / done
-                eta = per_done * (len(todo) - done)
-                fname = Path(path_str).name
-                if hashes is not None:
-                    # Main-process-only DB write — serialised, no lock
-                    # contention (SQLite allows a single writer).
-                    sid = self._insert_fingerprints(song_name, hashes, file_hash)
-                    if sid is not None:
-                        new_count += 1
-                        self._write_sqlite(path_str, sid)
-                        status = "Done"
-                        if err:  # ffmpeg fallback note from the worker
-                            log.warning("Recovered via ffmpeg fallback: %s (%s)",
-                                        fname, err)
-                    else:
-                        fail_count += 1
-                        status = "Failed"
-                else:
-                    fail_count += 1
-                    status = "Failed"
-                    # Log the actual exception (returned from the worker)
-                    # so failures are diagnosable — the old code swallowed
-                    # these and users only saw "Failed: name.flac" with
-                    # no hint WHY (e.g. 24-bit FLAC decode errors).
-                    log.error("Failed to fingerprint %s: %s", fname, err or "unknown error")
-                msg = (f"{status}: {fname} "
-                       f"(+{elapsed_this:.1f}s, {per_done:.1f}s/avg, "
-                       f"ETA {eta:.0f}s)")
-                if progress:
-                    progress(done + skip_count, total, msg)
+            result_iter = pool.imap_unordered(
+                FingerprintDB._mp_fingerprint_worker, todo, chunksize=4)
+            new_count, failed_paths, cancelled = self._drain_index_results(
+                pool, result_iter, len(todo), skip_count, total, progress, t0)
+        if cancelled:
+            return new_count
+
+        # Long tracks need big contiguous FFT arrays (up to ~250 MB
+        # complex128); when all workers hit those allocations at the same
+        # moment the pool raises MemoryError even though each song fits
+        # easily on its own. Retry leftovers one at a time.
+        retry_skip = skip_count + len(todo) - len(failed_paths)
+        recovered = self._retry_failed_serial(
+            failed_paths, retry_skip, total, progress)
+        new_count += recovered
+        fail_count = len(failed_paths) - recovered
 
         total_elapsed = time.time() - t0
         if progress:
             progress(
                 total, total,
                 f"Prepared {new_count} new of {total} "
-                f"({skip_count} skipped, {fail_count} failed) "
-                f"in {total_elapsed:.1f}s",
+                f"({skip_count} skipped, {fail_count} failed"
+                + (f", {recovered} recovered in low-memory pass" if recovered else "")
+                + f") in {total_elapsed:.1f}s",
             )
         return new_count
+
+    def _drain_index_results(
+        self, pool, result_iter, n_jobs: int, skip_count: int,
+        total: int, progress: Optional[ProgressCb], t0: float,
+    ) -> tuple[int, list[str], bool]:
+        """Consume ``imap_unordered`` worker results: write DB rows, report.
+
+        Returns ``(new_count, failed_paths, cancelled)``. Main-process-only
+        SQLite writes stay serialised here; worker subprocesses never touch
+        the DB.
+        """
+        new_count = 0
+        done = 0
+        last_t = t0
+        failed_paths: list[str] = []
+        for path_str, song_name, hashes, file_hash, err in result_iter:
+            if self._cancel_flag:
+                pool.terminate()
+                if progress:
+                    progress(done + skip_count, total, "Cancelled by user")
+                log.info("indexing: cancelled at %d/%d", done + skip_count, total)
+                return new_count, failed_paths, True
+            done += 1
+            now = time.time()
+            elapsed_total = now - t0
+            elapsed_this = now - last_t
+            last_t = now
+            per_done = elapsed_total / done
+            eta = per_done * (n_jobs - done)
+            fname = Path(path_str).name
+            if hashes is not None:
+                sid = self._insert_fingerprints(song_name, hashes, file_hash)
+                if sid is not None:
+                    new_count += 1
+                    self._write_sqlite(path_str, sid)
+                    status = "Done"
+                    if err:  # ffmpeg fallback note from the worker
+                        log.warning("Recovered via ffmpeg fallback: %s (%s)",
+                                    fname, err)
+                else:
+                    failed_paths.append(path_str)
+                    status = "Failed"
+            else:
+                failed_paths.append(path_str)
+                status = "Failed"
+                # Log the actual exception (returned from the worker)
+                # so failures are diagnosable — the old code swallowed
+                # these and users only saw "Failed: name.flac" with
+                # no hint WHY (e.g. 24-bit FLAC decode errors).
+                log.error("Failed to fingerprint %s: %s", fname, err or "unknown error")
+            msg = (f"{status}: {fname} "
+                   f"(+{elapsed_this:.1f}s, {per_done:.1f}s/avg, "
+                   f"ETA {eta:.0f}s)")
+            if progress:
+                progress(done + skip_count, total, msg)
+        return new_count, failed_paths, False
+
+    def _retry_failed_serial(
+        self, failed_paths: list[str], skip_count: int,
+        total: int, progress: Optional[ProgressCb],
+    ) -> int:
+        """Single-worker retry pass for files that failed in parallel.
+
+        Peak memory drops to one song's worth, so transient MemoryError
+        failures (12 workers allocating FFT arrays simultaneously) recover
+        without user action. Returns the number of recovered files.
+        """
+        if not failed_paths or self._cancel_flag:
+            return 0
+        log.info("Low-memory retry: %d failed file(s) → 1 worker", len(failed_paths))
+        recovered = 0
+        done = 0
+        with _mp.Pool(1, initializer=_init_worker) as pool:
+            result_iter = pool.imap_unordered(
+                FingerprintDB._mp_fingerprint_worker, failed_paths, chunksize=1)
+            for path_str, song_name, hashes, file_hash, err in result_iter:
+                if self._cancel_flag:
+                    pool.terminate()
+                    if progress:
+                        progress(skip_count + done, total, "Cancelled by user")
+                    log.info("low-memory retry: cancelled at %d/%d",
+                             done, len(failed_paths))
+                    return recovered
+                done += 1
+                fname = Path(path_str).name
+                ok = False
+                if hashes is not None:
+                    sid = self._insert_fingerprints(song_name, hashes, file_hash)
+                    if sid is not None:
+                        self._write_sqlite(path_str, sid)
+                        recovered += 1
+                        ok = True
+                        log.info("Recovered in low-memory pass: %s", fname)
+                if not ok:
+                    log.error("Still failing in low-memory pass: %s: %s",
+                              fname, err or "unknown error")
+                if progress:
+                    progress(
+                        skip_count + done, total,
+                        f"Low-memory retry {done}/{len(failed_paths)} "
+                        f"({'recovered' if ok else 'still failing'}): {fname}")
+        log.info("Low-memory retry recovered %d/%d file(s)",
+                 recovered, len(failed_paths))
+        return recovered
 
     def index_library(
         self,
@@ -866,11 +941,7 @@ class FingerprintDB:
                 progress(total, total, f"All {total} already indexed")
             return 0
 
-        new_count = 0
-        done = 0
-        fail_count = 0
-
-        n_workers = workers or min(_mp.cpu_count() or 4, 12)
+        n_workers = workers or self._auto_workers()
         log.info("index_library: %d songs already indexed, %d new → %d workers",
                  skip_count, len(todo), n_workers)
 
@@ -878,54 +949,30 @@ class FingerprintDB:
             progress(skip_count, total,
                      f"Dispatching {len(todo)} new songs to {n_workers} workers")
 
+        t0 = time.time()
         with _mp.Pool(n_workers, initializer=_init_worker) as pool:
-            t0 = time.time()
-            last_t = t0
-            for path_str, song_name, hashes, file_hash, err in pool.imap_unordered(
-                FingerprintDB._mp_fingerprint_worker, todo, chunksize=4
-            ):
-                if self._cancel_flag:
-                    pool.terminate()
-                    if progress:
-                        progress(done + skip_count, total, "Cancelled by user")
-                    log.info("index_library: cancelled at %d/%d", done, total)
-                    return new_count
-                done += 1
-                now = time.time()
-                elapsed_total = now - t0
-                elapsed_this = now - last_t
-                last_t = now
-                per_done = elapsed_total / done
-                eta = per_done * (len(todo) - done)
-                fname = Path(path_str).name
-                if hashes is not None:
-                    sid = self._insert_fingerprints(song_name, hashes, file_hash)
-                    if sid is not None:
-                        new_count += 1
-                        self._write_sqlite(path_str, sid)
-                        status = "Done"
-                        if err:  # ffmpeg fallback note from the worker
-                            log.warning("Recovered via ffmpeg fallback: %s (%s)",
-                                        fname, err)
-                    else:
-                        fail_count += 1
-                        status = "Failed"
-                else:
-                    fail_count += 1
-                    status = "Failed"
-                    log.error("Failed to fingerprint %s: %s", fname, err or "unknown error")
-                msg = (f"{status}: {fname} "
-                       f"(+{elapsed_this:.1f}s, {per_done:.1f}s/avg, "
-                       f"ETA {eta:.0f}s)")
-                if progress:
-                    progress(done + skip_count, total, msg)
+            result_iter = pool.imap_unordered(
+                FingerprintDB._mp_fingerprint_worker, todo, chunksize=4)
+            new_count, failed_paths, cancelled = self._drain_index_results(
+                pool, result_iter, len(todo), skip_count, total, progress, t0)
+        if cancelled:
+            return new_count
+
+        # Memory-pressure leftovers (see index_files) — retry serially.
+        retry_skip = skip_count + len(todo) - len(failed_paths)
+        recovered = self._retry_failed_serial(
+            failed_paths, retry_skip, total, progress)
+        new_count += recovered
+        fail_count = len(failed_paths) - recovered
 
         total_elapsed = time.time() - t0
         if progress:
             progress(
                 total, total,
                 f"Done. {new_count} new, {skip_count} skipped, "
-                f"{fail_count} failed. ({total_elapsed:.1f}s)",
+                f"{fail_count} failed"
+                + (f" ({recovered} recovered in low-memory pass)" if recovered else "")
+                + f". ({total_elapsed:.1f}s)",
             )
         return new_count
 
@@ -933,16 +980,22 @@ class FingerprintDB:
     def _auto_workers() -> int:
         """Pick a sensible worker count based on CPU cores + available RAM.
 
-        Each worker loads one ~20-100MB FLAC into memory (int16 stereo),
-        calls scipy.resample (temporarily doubles to float64), runs dejavu
-        FFT fingerprinting, then writes ~100k rows to MySQL.  Total per
-        worker is roughly 300-500 MB peak RSS + ~0.5-1 CPU-second FFT.
+        Each worker loads one ~20-120MB track into memory (int16 stereo),
+        calls scipy.resample (temporarily doubles to float64), then runs
+        dejavu's full-song FFT fingerprint — long tracks allocate a
+        contiguous complex128 spectrogram of up to ~250 MB on top of the
+        ~115 MB decoded-audio array.  Total per worker is roughly
+        600-900 MB peak RSS + ~0.5-1 CPU-second FFT.
 
         Strategy:
-        * Cap at half the logical cores — the main thread and MySQL itself
+        * Cap at half the logical cores — the main thread and the OS
           also want CPU.
-        * Cap at floor(1/4 of RAM) MB — avoid swapping.
+        * Cap at ~800 MB/worker of total RAM — avoid the simultaneous
+          allocation spikes that raised MemoryError on 12-worker runs.
         * Always at least 2 so we never run in serial.
+
+        Any files that still fail under parallel memory pressure are
+        retried in a single-worker pass (see _retry_failed_serial).
         """
         try:
             cores = os.cpu_count() or 4
@@ -955,7 +1008,7 @@ class FingerprintDB:
             mem_mb = None
 
         cpu_budget = max(2, cores // 2)        # half the cores, min 2
-        ram_budget = (mem_mb // 500) if mem_mb else cpu_budget  # 500 MB/worker
+        ram_budget = (mem_mb // 800) if mem_mb else cpu_budget  # 800 MB/worker
         return min(cpu_budget, ram_budget)
 
     def _write_sqlite(self, file_path: str, song_id: int) -> None:

@@ -242,16 +242,30 @@ def _current_monitor_index() -> Optional[int]:
 
 
 def _convert_alpha(surf: "pygame.Surface") -> "pygame.Surface":
-    """convert_alpha() that falls back to the raw surface.
+    """convert_alpha() with a safe fallback for the GPU (no set_mode) path.
 
     ``convert_alpha()`` needs a live display surface; in the GPU render
     path we create an SDL2 ``video.Window`` directly (no ``set_mode``), so
     no conversion format is registered and convert_alpha raises "No
-    convert format has been set". The raw surface still works fine with
-    ``Texture.from_surface``, so we just use it unchanged in that case.
+    convert format has been set". In that case raw loaded images keep
+    their on-disk format — often an 8-bit paletted PNG — and later
+    ``pygame.transform.smoothscale`` calls crash with "Only 24-bit or
+    32-bit surfaces can be smooth scaled" (standby logo / blurred-bg
+    paths). Promote such surfaces to 32-bit SRCALPHA manually: blit
+    needs no display mode, and the result also works with
+    ``Texture.from_surface``.
     """
     try:
         return surf.convert_alpha()
+    except Exception:
+        pass
+    try:
+        import pygame
+        if surf.get_bitsize() >= 24:
+            return surf
+        promoted = pygame.Surface(surf.get_size(), pygame.SRCALPHA, 32)
+        promoted.blit(surf, (0, 0))
+        return promoted
     except Exception:
         return surf
 
@@ -299,11 +313,12 @@ def _load_cover(path: Optional[str], square_size: int, gpu: bool = False):
 def _make_blurred_bg(img, screen_w: int, screen_h: int, blur_px: int):
     """Aspect-fill the screen with a heavily blurred, darkened cover copy.
 
-    ``blur_px`` controls the blur strength: smaller values shrink further
+    ``blur_px controls the blur strength: smaller values shrink further
     before re-enlarging, giving stronger blur. Default 8 produces near-solid
     colour blocks with no visible pixel structure.
     """
     import pygame
+    img = _convert_alpha(img)   # smoothscale needs a 24/32-bit surface
     iw, ih = img.get_size()
     scale = max(screen_w / iw, screen_h / ih)
     sw, sh = max(1, int(iw * scale)), max(1, int(ih * scale))
@@ -427,6 +442,10 @@ def _scale_standby(raw, screen_w: int, screen_h: int):
     the alpha channel via ``smoothscale``.
     """
     import pygame
+    # smoothscale rejects 8-bit paletted surfaces; in the GPU path loaded
+    # images may still be 8-bit (no set_mode → convert_alpha unavailable).
+    # Normalise here too so the function is safe regardless of caller.
+    raw = _convert_alpha(raw)
     iw, ih = raw.get_size()
     if iw <= 0 or ih <= 0:
         return None
