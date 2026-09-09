@@ -517,12 +517,17 @@ class DebugUI:
             "conf.warning",
         ).pack(anchor="w", padx=8, pady=(2, 4))
 
-        self.conf_first_var = ctk.DoubleVar(
-            value=SETTINGS.capture.first_track_min_confidence)
-        self.conf_tentative_var = ctk.DoubleVar(
-            value=SETTINGS.capture.tentative_min_confidence)
-        self.conf_switch_var = ctk.DoubleVar(
-            value=SETTINGS.capture.switch_min_confidence)
+        # StringVar (not DoubleVar): CTkEntry's internal textvariable
+        # trace calls .get() on every keystroke, and a DoubleVar raises
+        # TclError while the user is mid-typing non-numeric text
+        # (e.g. "abc"), spewing a traceback. A StringVar never parses —
+        # _clamp_conf() does the float conversion and ignores garbage.
+        self.conf_first_var = ctk.StringVar(
+            value=f"{SETTINGS.capture.first_track_min_confidence:.2f}")
+        self.conf_tentative_var = ctk.StringVar(
+            value=f"{SETTINGS.capture.tentative_min_confidence:.2f}")
+        self.conf_switch_var = ctk.StringVar(
+            value=f"{SETTINGS.capture.switch_min_confidence:.2f}")
 
         # (label_key, hint_key, var, handler) — one number box per floor.
         self._conf_rows = [
@@ -789,14 +794,14 @@ class DebugUI:
         self._send({"type": "settings", "beat_reactive": bool(self.beat_var.get())})
 
     # -- confidence thresholds (advanced, red section) -------------------
-    def _clamp_conf(self, var: ctk.DoubleVar) -> Optional[float]:
+    def _clamp_conf(self, var: "ctk.StringVar") -> Optional[float]:
         """Parse + clamp a confidence entry; write the clamped value back."""
         try:
             v = round(float(var.get()), 2)
         except (TypeError, ValueError, tk.TclError):
             return None
         v = min(0.95, max(0.05, v))
-        var.set(v)
+        var.set(f"{v:.2f}")
         return v
 
     def _on_conf_first_change(self) -> None:

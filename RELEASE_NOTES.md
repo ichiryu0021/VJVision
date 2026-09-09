@@ -22,6 +22,7 @@
 
 ### 稳定性
 - 配置写入改为临时文件 + 原子替换（失败自动重试 5 次），`prefs.json` 不会因写入中途中断而损坏；写入彻底失败时在日志中记录警告而非静默丢失设置
+- 置信度输入框改用字符串变量承载：输入非数字内容时不再在后台打印异常堆栈（输入仍被安全忽略，回车/失焦后数值自动还原）
 
 ### English
 
@@ -39,6 +40,7 @@
 
 #### Stability
 - Prefs writes now go through a temp file + atomic replace (5 retries on failure), so `prefs.json` can never be corrupted by an interrupted write; a total write failure logs a warning instead of silently dropping settings
+- Confidence entries now use string-backed variables: typing non-numeric text no longer prints an exception traceback in the background (the input is still safely ignored and the value restores on Enter/focus-out)
 
 ---
 
