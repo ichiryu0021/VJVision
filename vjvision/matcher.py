@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Optional
 
 from .audio_capture import AudioCapture
-from .config import SETTINGS
+from .config import SETTINGS, save_prefs
 from .fingerprint import FingerprintDB
 from .i18n import t
 from .metadata import Track, extract_track
@@ -293,6 +293,11 @@ class MatcherThread(threading.Thread):
             self._log("Capture started.")
         except Exception as exc:
             self._log(f"{t('cap.start_failed')}: {exc}", "error")
+            # Revert the UI toggle (bottom bar) to the idle "start" state
+            # so a failed capture doesn't leave a stuck "停止采集" button.
+            self._capture_running = False
+            self._send_ui({"type": "capture_status",
+                           "text": t("cap.monitoring")})
 
     def _stop_capture(self) -> None:
         # Return to MONITOR mode: recognition + spectrum off, but the
@@ -477,23 +482,29 @@ class MatcherThread(threading.Thread):
             return
 
         # --- Two-tier confidence gate -----------------------------------
-        # Tier 1 (noise floor): confidence < 0.06 → pure hash collisions
-        #   from silence / transients.  Reject outright.
-        # Tier 2 (tentative): 0.06 ≤ confidence < 0.30 → likely a real
+        # All three floors are user-tunable in the Debug UI's advanced
+        # (red) confidence section; the values below are just defaults.
+        # Tier 1 (noise floor): confidence < tentative (0.06) → pure hash
+        #   collisions from silence / transients.  Reject outright.
+        # Tier 2 (tentative/脉动): tentative (0.06) ≤ confidence < accept
+        #   (0.30 for switches, 0.25 for the first track) → likely a real
         #   match but the hash count is diluted (multi-version songs,
-        #   quiet capture, etc.).  Show it as a pulsing "tentative"
-        #   preview on the first hit; once confidence climbs to
-        #   ≥ 0.30 it gets hard-confirmed.
-        # Tier 3 (confirmed): confidence ≥ 0.30 → normal confirmation
+        #   quiet capture, etc.).  A DIFFERENT song here starts a pulsing
+        #   "tentative" preview; once confidence climbs to the accept floor
+        #   it gets hard-confirmed.
+        # Tier 3 (confirmed): confidence ≥ accept → normal confirmation
         #   flow (N consecutive hits before switching the display).
-        TENTATIVE_CONFIDENCE = 0.06
-        MIN_ACCEPT_CONFIDENCE = 0.30
-        # First track uses a lower accept threshold (0.25) so the very
-        # first song confirms faster — we don't have a confirmed track to
-        # "lose" yet, and we've already suppressed the tentative pulse for
-        # the first track, so accepting at 0.25 is safe.  Subsequent
-        # tracks still need 0.30 to avoid flicker during quiet passages.
-        FIRST_TRACK_MIN_ACCEPT = 0.25
+        TENTATIVE_CONFIDENCE = SETTINGS.capture.tentative_min_confidence
+        # Accept thresholds are user-tunable in the Debug UI's advanced
+        # (red) confidence section and persisted via CaptureConfig prefs.
+        MIN_ACCEPT_CONFIDENCE = SETTINGS.capture.switch_min_confidence
+        # First track uses a lower accept threshold (default 0.25) so the
+        # very first song confirms faster — we don't have a confirmed
+        # track to "lose" yet, and we've already suppressed the tentative
+        # pulse for the first track.  Subsequent tracks use the higher
+        # switch threshold (default 0.30) to avoid flicker during quiet
+        # passages.
+        FIRST_TRACK_MIN_ACCEPT = SETTINGS.capture.first_track_min_confidence
         accept_threshold = (
             FIRST_TRACK_MIN_ACCEPT if self._current_track_path is None
             else MIN_ACCEPT_CONFIDENCE
@@ -800,7 +811,9 @@ class MatcherThread(threading.Thread):
             # still being reachable when the new track's fingerprints are
             # diluted by the outgoing track during a long cross-fade.
             # (0.40 was too strict: long mixes often peak at 0.30–0.38.)
-            MIX_MIN_CONFIDENCE = 0.30
+            # Follows the user-tunable switch threshold so the "切歌置信度"
+            # knob controls switching in and out of mixes consistently.
+            MIX_MIN_CONFIDENCE = SETTINGS.capture.switch_min_confidence
             if result.confidence < MIX_MIN_CONFIDENCE:
                 log.info(
                     "Mix hold — %s conf=%.2f below mix threshold %.2f",
@@ -982,6 +995,38 @@ class MatcherThread(threading.Thread):
                 SETTINGS.visual.font_name = str(msg["font_name"])
             if "standby_image" in msg:
                 SETTINGS.visual.standby_image = str(msg["standby_image"])
+            # Advanced confidence thresholds (Debug UI red section).
+            # Clamp to a sane range so a typo can't brick recognition.
+            conf_changed = False
+            if "first_track_min_confidence" in msg:
+                try:
+                    SETTINGS.capture.first_track_min_confidence = min(
+                        0.95, max(0.05, float(msg["first_track_min_confidence"])))
+                    conf_changed = True
+                except (TypeError, ValueError):
+                    pass
+            if "tentative_min_confidence" in msg:
+                try:
+                    SETTINGS.capture.tentative_min_confidence = min(
+                        0.95, max(0.05, float(msg["tentative_min_confidence"])))
+                    conf_changed = True
+                except (TypeError, ValueError):
+                    pass
+            if "switch_min_confidence" in msg:
+                try:
+                    SETTINGS.capture.switch_min_confidence = min(
+                        0.95, max(0.05, float(msg["switch_min_confidence"])))
+                    conf_changed = True
+                except (TypeError, ValueError):
+                    pass
+            if conf_changed:
+                self._log(
+                    f"Confidence thresholds: first-track="
+                    f"{SETTINGS.capture.first_track_min_confidence:.2f}, "
+                    f"tentative/pulse={SETTINGS.capture.tentative_min_confidence:.2f}, "
+                    f"switch={SETTINGS.capture.switch_min_confidence:.2f}"
+                )
+                save_prefs()
             self._send_viz(msg)   # forward to the visualizer process.
 
     # -- main loop -------------------------------------------------------

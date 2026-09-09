@@ -12,10 +12,14 @@ prefs file.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
+import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 def _compute_base_dirs() -> tuple[Path, Path, Path, Path]:
@@ -113,6 +117,22 @@ class CaptureConfig:
                                      # switching the displayed track.  This
                                      # filters out the occasional low-confidence
                                      # false positive on a mid-track noise burst.
+    first_track_min_confidence: float = 0.25
+                                     # min dejavu confidence to accept the
+                                     # FIRST track (nothing displayed yet).
+                                     # Deliberately lower than the switch
+                                     # threshold so startup populates fast.
+    tentative_min_confidence: float = 0.06
+                                     # noise floor AND pulse trigger: a
+                                     # different song at/above this while a
+                                     # track is shown starts the pulsing
+                                     # "tentative" preview; hits below it are
+                                     # treated as pure hash collisions.
+    switch_min_confidence: float = 0.30
+                                     # min dejavu confidence to hard-confirm
+                                     # a track switch (pulsing -> next song),
+                                     # also used while exiting a mix.
+                                     # Higher = more flicker-resistant.
     spectrum_fps: int = 30         # how often FFT bins are pushed to the visualizer
     spectrum_bins: int = 48        # number of frequency bins rendered (denser bar grid)
 
@@ -189,12 +209,32 @@ def save_prefs() -> None:
         "visualizer_display": SETTINGS.visualizer_display,
         "language": SETTINGS.language,
         "visual": asdict(SETTINGS.visual),
+        "capture": asdict(SETTINGS.capture),
     }
-    try:
-        with open(PREFS_FILE, "w", encoding="utf-8") as f:
-            json.dump(prefs, f, indent=2, ensure_ascii=False)
-    except OSError:
-        pass  # non-critical — prefs are nice-to-have
+    # Atomic write: dump to a sibling temp file then os.replace() it over
+    # the real prefs.json (avoids partial-write corruption).  Retry a few
+    # times: at startup the visualizer child process reads prefs while
+    # Windows Defender scans freshly written files under %APPDATA%, which
+    # can briefly lock the path and raise Permission denied.
+    tmp = PREFS_FILE.with_suffix(".json.tmp")
+    for attempt in range(6):
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(prefs, f, indent=2, ensure_ascii=False)
+            os.replace(tmp, PREFS_FILE)
+            return
+        except OSError as exc:
+            if attempt >= 5:
+                # Non-critical — prefs are nice-to-have — but log it so a
+                # persistent write failure (permissions, AV lock) isn't
+                # mistaken for "saved".
+                log.warning("Failed to save prefs to %s: %s", PREFS_FILE, exc)
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+                return
+            time.sleep(0.1)
 
 
 def load_prefs() -> None:
@@ -225,3 +265,20 @@ def load_prefs() -> None:
         for k, val in v.items():
             if hasattr(SETTINGS.visual, k):
                 setattr(SETTINGS.visual, k, val)
+
+    c = prefs.get("capture")
+    if isinstance(c, dict):
+        for k, val in c.items():
+            if not hasattr(SETTINGS.capture, k):
+                continue
+            # Confidence thresholds are floats — coerce defensively
+            # (hand-edited prefs may contain strings/ints).
+            if k in ("first_track_min_confidence",
+                     "tentative_min_confidence",
+                     "switch_min_confidence"):
+                try:
+                    setattr(SETTINGS.capture, k, float(val))
+                except (TypeError, ValueError):
+                    pass
+            else:
+                setattr(SETTINGS.capture, k, val)

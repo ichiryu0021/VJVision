@@ -6,6 +6,42 @@
 > **格式约定 / Format**：每个版本都包含中文与英文两段（中文在前，英文在 `### English` 段），内容一一对应、同步维护。
 > Each version contains both a Chinese block and an `### English` block covering the same changes.
 
+## v1.3.0-beta (2026-09-09)
+
+### 识别置信度可调（高级选项）
+- 控制台左列新增红色标题的「**⚠️ 识别置信度调整**」面板，三个数字输入框分别控制识别链路的三道门槛：
+  - **第一首置信度**（默认 0.25）：认出第一首歌的门槛
+  - **脉动触发置信度**（默认 0.06）：切歌时先进入脉动预览（暂不换歌）的门槛
+  - **切歌确认置信度**（默认 0.30）：从脉动预览真正切到下一首的门槛
+- 输入后按回车或点击别处即生效，数值自动限定在 0.05–0.95 范围；三个阈值持久化到 `prefs.json`，重启后自动恢复
+- 面板带橙色警告提示：该选项会影响识别精确度，正式表演前请先测试——越低识别速度越快，越高识别精确度越高
+
+### 控制台交互优化
+- 「开始采集 / 停止采集」两个按钮合并为控制台**底部整条长按钮**：待机时绿色「开始采集」，采集运行中变为红色「停止采集」，状态一目了然；采集启动失败时按钮自动回弹为绿色，不再卡在错误状态
+- 语言下拉选项改为自描述显示：「中文(Chinese)」「English(英语)」，中英文用户都能直接看懂
+
+### 稳定性
+- 配置写入改为临时文件 + 原子替换（失败自动重试 5 次），`prefs.json` 不会因写入中途中断而损坏；写入彻底失败时在日志中记录警告而非静默丢失设置
+
+### English
+
+#### Adjustable recognition confidence (advanced)
+- New red-titled "**⚠️ Recognition Confidence**" panel in the console's left column, with three numeric inputs for the three gates of the recognition pipeline:
+  - **First-track confidence** (default 0.25): floor to accept the first song
+  - **Pulse-trigger confidence** (default 0.06): floor that starts the pulsing preview (song not yet switched) on a new song
+  - **Switch-confirm confidence** (default 0.30): floor to actually switch from the pulsing preview to the next song
+- Values apply on Enter or focus-out and are auto-clamped to 0.05–0.95; all three floors are persisted to `prefs.json` and restored on restart
+- An amber warning on the panel notes that these affect recognition accuracy — test before a live performance: lower = faster recognition, higher = more accurate
+
+#### Console UX
+- The two "Start Capture" / "Stop Capture" buttons are merged into one **full-width bar pinned to the bottom** of the console: green "Start Capture" when idle, red "Stop Capture" while a capture is running; if capture fails to start, the button snaps back to green automatically instead of sticking in the wrong state
+- Language picker now shows self-describing labels: "中文(Chinese)" / "English(英语)", readable by both Chinese- and English-speaking users
+
+#### Stability
+- Prefs writes now go through a temp file + atomic replace (5 retries on failure), so `prefs.json` can never be corrupted by an interrupted write; a total write failure logs a warning instead of silently dropping settings
+
+---
+
 ## v1.2.1-beta (2026-09-09)
 
 ### 稳定性：无音频硬件不再闪退

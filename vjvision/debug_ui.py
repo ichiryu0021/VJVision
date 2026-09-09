@@ -34,6 +34,11 @@ log = logging.getLogger(__name__)
 # (value, key) — value is the engine id, key is the i18n key for the label
 STYLE_OPTIONS = [("bar", "style.bar"), ("wave", "style.wave"), ("mirror", "style.mirror")]
 
+# Language picker: display label (self-describing, shown in both UIs) ->
+# internal language code stored in SETTINGS.language.
+LANG_DISPLAY = {"zh": "中文(Chinese)", "en": "English(英语)"}
+LANG_CODE = {label: code for code, label in LANG_DISPLAY.items()}
+
 
 class DebugUI:
     """CustomTkinter main window."""
@@ -68,6 +73,22 @@ class DebugUI:
         self.root.geometry(f"1240x{win_h}+40+20")
         self.root.minsize(1000, 560)
 
+        # === Bottom capture toggle bar (prominent, fixed position) ===
+        # Single start/stop toggle, packed side="bottom" BEFORE the
+        # scroll frame so it always anchors the bottom edge of the
+        # window: green "开始采集/Start Capture" when idle, red
+        # "停止采集/Stop Capture" while a recognition capture is running.
+        self._capturing = False
+        self.cap_bar = ctk.CTkFrame(self.root, fg_color="transparent")
+        self.cap_bar.pack(side="bottom", fill="x", padx=10, pady=(2, 10))
+        self.capture_btn = ctk.CTkButton(
+            self.cap_bar, text=t("cap.start"), height=46,
+            font=ctk.CTkFont(size=18, weight="bold"),
+            fg_color="#2f9e44", hover_color="#2b8a3e",
+            command=self._on_capture_toggle,
+        )
+        self.capture_btn.pack(fill="x")
+
         self.scroll = ctk.CTkScrollableFrame(
             self.root,
             fg_color="transparent",
@@ -82,6 +103,11 @@ class DebugUI:
         self._on_rotation_change(self.rotation_var.get())
         self._on_style_change()
         self._on_beat_change()
+        # Push the (possibly prefs-restored) confidence floors so the
+        # matcher starts from exactly what the boxes show.
+        self._on_conf_first_change()
+        self._on_conf_tentative_change()
+        self._on_conf_switch_change()
 
         self.root.after(100, self._poll_in)
 
@@ -188,11 +214,12 @@ class DebugUI:
         ctk.CTkLabel(top_bar, text=f"v{__version__}", text_color="gray").pack(
             side="left")
         from .config import SETTINGS, save_prefs
-        self.lang_var = ctk.StringVar(value=SETTINGS.language)
+        self.lang_var = ctk.StringVar(
+            value=LANG_DISPLAY.get(SETTINGS.language, LANG_DISPLAY["zh"]))
         self.lang_menu = ctk.CTkOptionMenu(
             top_bar, variable=self.lang_var,
-            values=["zh", "en"],
-            command=self._on_lang_change, width=110,
+            values=list(LANG_DISPLAY.values()),
+            command=self._on_lang_change, width=150,
         )
         self.lang_menu.pack(side="right")
 
@@ -471,23 +498,67 @@ class DebugUI:
 
         self.root.after(3000, self._poll_viz_alive)
 
-        # === Capture controls ==========================================
-        self.cap_frame = ctk.CTkFrame(self.left_col)
-        self.cap_frame.pack(fill="x", **pad)
-        self.start_btn = self._reg(
-            ctk.CTkButton(self.cap_frame, text=t("cap.start"), fg_color="green",
-                          command=self._on_start),
-            "cap.start",
-        )
-        self.start_btn.pack(side="left", padx=8, pady=8)
-        self.stop_btn = self._reg(
-            ctk.CTkButton(self.cap_frame, text=t("cap.stop"), fg_color="darkred",
-                          command=self._on_stop),
-            "cap.stop",
-        )
-        self.stop_btn.pack(side="left", padx=8, pady=8)
-        self.capture_status = ctk.CTkLabel(self.cap_frame, text=t("cap.stopped"))
-        self.capture_status.pack(side="left", padx=12)
+        # === Confidence thresholds (ADVANCED — red warning) ===========
+        # Recognition-engine floors: pulse-trigger (脉动) and hard-confirm
+        # for the first track / for switching.  Wrong values cause false
+        # song jumps or no switching at all, hence the warning styling.
+        from .config import SETTINGS
+        self.conf_frame = ctk.CTkFrame(self.left_col)
+        self.conf_frame.pack(fill="x", **pad)
+        self._reg(
+            ctk.CTkLabel(self.conf_frame, text=t("conf.title"),
+                         text_color="#ff5555"),
+            "conf.title",
+        ).pack(anchor="w", padx=8, pady=(8, 0))
+        self._reg(
+            ctk.CTkLabel(self.conf_frame, text=t("conf.warning"),
+                         text_color="#e8a33d", justify="left",
+                         wraplength=540, font=("", 12)),
+            "conf.warning",
+        ).pack(anchor="w", padx=8, pady=(2, 4))
+
+        self.conf_first_var = ctk.DoubleVar(
+            value=SETTINGS.capture.first_track_min_confidence)
+        self.conf_tentative_var = ctk.DoubleVar(
+            value=SETTINGS.capture.tentative_min_confidence)
+        self.conf_switch_var = ctk.DoubleVar(
+            value=SETTINGS.capture.switch_min_confidence)
+
+        # (label_key, hint_key, var, handler) — one number box per floor.
+        self._conf_rows = [
+            ("conf.first", "conf.first_hint", self.conf_first_var,
+             self._on_conf_first_change),
+            ("conf.tentative", "conf.tentative_hint", self.conf_tentative_var,
+             self._on_conf_tentative_change),
+            ("conf.switch", "conf.switch_hint", self.conf_switch_var,
+             self._on_conf_switch_change),
+        ]
+        for row_idx, (label_key, hint_key, var, handler) in enumerate(self._conf_rows):
+            row = ctk.CTkFrame(self.conf_frame, fg_color="transparent")
+            row.pack(fill="x", padx=8,
+                     pady=(2, 8 if row_idx == len(self._conf_rows) - 1 else 2))
+            self._reg(
+                ctk.CTkLabel(row, text=t(label_key), width=120, anchor="w"),
+                label_key,
+            ).pack(side="left")
+            entry = ctk.CTkEntry(row, textvariable=var, width=70,
+                                 justify="center")
+            entry.pack(side="left", padx=(6, 8))
+            self._reg(
+                ctk.CTkLabel(row, text=t(hint_key), text_color="gray",
+                             font=("", 12), anchor="w"),
+                hint_key,
+            ).pack(side="left")
+            entry.bind("<Return>", lambda e, h=handler: h())
+            entry.bind("<FocusOut>", lambda e, h=handler: h())
+
+        # === Capture state (hidden holder) =============================
+        # The start/stop controls live in the prominent bottom bar now
+        # (self.capture_btn).  This label is deliberately NOT packed: it
+        # only holds the current capture-state text ("采集：运行中" /
+        # "监听输入中" / ...) which drives the track-state label refresh
+        # and the toggle button colour via _refresh_track_state_label().
+        self.capture_status = ctk.CTkLabel(self.left_col, text=t("cap.stopped"))
 
         # === Current track ============================================
         self.track_frame = ctk.CTkFrame(self.left_col)
@@ -512,8 +583,9 @@ class DebugUI:
         self.log_text.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
     # -- language ---------------------------------------------------------
-    def _on_lang_change(self, lang: str) -> None:
+    def _on_lang_change(self, display: str) -> None:
         from .config import SETTINGS, save_prefs
+        lang = LANG_CODE.get(display, "zh")
         SETTINGS.language = lang
         save_prefs()
         self._apply_lang()
@@ -716,6 +788,32 @@ class DebugUI:
     def _on_beat_change(self) -> None:
         self._send({"type": "settings", "beat_reactive": bool(self.beat_var.get())})
 
+    # -- confidence thresholds (advanced, red section) -------------------
+    def _clamp_conf(self, var: ctk.DoubleVar) -> Optional[float]:
+        """Parse + clamp a confidence entry; write the clamped value back."""
+        try:
+            v = round(float(var.get()), 2)
+        except (TypeError, ValueError, tk.TclError):
+            return None
+        v = min(0.95, max(0.05, v))
+        var.set(v)
+        return v
+
+    def _on_conf_first_change(self) -> None:
+        v = self._clamp_conf(self.conf_first_var)
+        if v is not None:
+            self._send({"type": "settings", "first_track_min_confidence": v})
+
+    def _on_conf_tentative_change(self) -> None:
+        v = self._clamp_conf(self.conf_tentative_var)
+        if v is not None:
+            self._send({"type": "settings", "tentative_min_confidence": v})
+
+    def _on_conf_switch_change(self) -> None:
+        v = self._clamp_conf(self.conf_switch_var)
+        if v is not None:
+            self._send({"type": "settings", "switch_min_confidence": v})
+
     def _on_bg_mode_change(self, choice: str) -> None:
         raw = "blur" if choice == t("display.bg_blur") else "flow"
         self._send({"type": "settings", "bg_mode": raw})
@@ -801,15 +899,34 @@ class DebugUI:
         self._send({"type": "settings", "standby_image": ""})
 
     # -- capture ----------------------------------------------------------
+    def _sync_capture_btn(self) -> None:
+        """Bottom bar text/colour reflect the current capture state."""
+        if self._capturing:
+            self.capture_btn.configure(
+                text=t("cap.stop"), fg_color="#c92a2a", hover_color="#a61e1e")
+        else:
+            self.capture_btn.configure(
+                text=t("cap.start"), fg_color="#2f9e44", hover_color="#2b8a3e")
+
+    def _on_capture_toggle(self) -> None:
+        if self._capturing:
+            self._on_stop()
+        else:
+            self._on_start()
+
     def _on_start(self) -> None:
         self._send({"type": "start"})
         self.capture_status.configure(text=t("cap.running"))
         self.track_state.configure(text=t("track.capturing"), text_color="#48bb78")
+        self._capturing = True
+        self._sync_capture_btn()
 
     def _on_stop(self) -> None:
         self._send({"type": "stop"})
         self.capture_status.configure(text=t("cap.monitoring"))
         self.track_state.configure(text=t("track.listening"), text_color="#63b3ed")
+        self._capturing = False
+        self._sync_capture_btn()
 
     # -- visualizer management --------------------------------------------
     def _on_viz_restart(self) -> None:
@@ -890,17 +1007,26 @@ class DebugUI:
         self.root.after(100, self._poll_in)
 
     def _refresh_track_state_label(self) -> None:
-        """Re-apply the track-state label based on current capture text."""
+        """Re-apply the track-state label based on current capture text.
+
+        Also keeps the bottom toggle button in sync: its text/colour is
+        driven by the same capture-state text, so language switches and
+        matcher status updates flow through one place.
+        """
         try:
             text = self.capture_status.cget("text")
         except Exception:
             return
         if t("cap.running") in text or "运行中" in text:
             self.track_state.configure(text=t("track.capturing"), text_color="#48bb78")
+            self._capturing = True
         elif "监听" in text or "monitoring" in text:
             self.track_state.configure(text=t("track.listening"), text_color="#63b3ed")
+            self._capturing = False
         elif "已停止" in text or "Stopped" in text:
             self.track_state.configure(text=t("track.standby"), text_color="gray")
+            self._capturing = False
+        self._sync_capture_btn()
 
     def _handle_in(self, msg: dict) -> None:
         mtype = msg.get("type")
@@ -943,14 +1069,9 @@ class DebugUI:
                 self._refresh_queue_display()
             self.prep_status.configure(text=t("prep.files_prepared", new=new, total=total))
         elif mtype == "capture_status":
-            text = msg.get("text", "")
-            self.capture_status.configure(text=text)
-            if t("cap.running") in text or "运行中" in text:
-                self.track_state.configure(text=t("track.capturing"), text_color="#48bb78")
-            elif "监听" in text or "monitoring" in text:
-                self.track_state.configure(text=t("track.listening"), text_color="#63b3ed")
-            elif "已停止" in text or "Stopped" in text:
-                self.track_state.configure(text=t("track.standby"), text_color="gray")
+            self.capture_status.configure(text=msg.get("text", ""))
+            # Refreshes the track-state label AND the bottom toggle.
+            self._refresh_track_state_label()
         elif mtype == "viz_status":
             self._append_log(msg.get("text", ""))
             self._update_viz_status_label()

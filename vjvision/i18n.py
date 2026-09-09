@@ -70,6 +70,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "anim.range": "（范围：0.05–2.0）",
         "anim.beat": "随节拍旋转",
 
+        # --- confidence thresholds (advanced) ---
+        "conf.title": "⚠️ 识别置信度调整",
+        "conf.warning": "注意：该选项会影响识别精确度，在正式表演前请先测试。越低识别速度越快，越高识别精确度越高。",
+        "conf.first": "第一首置信度：",
+        "conf.first_hint": "认出第一首歌的门槛（默认 0.25 · 范围 0.05–0.95）",
+        "conf.tentative": "脉动触发置信度：",
+        "conf.tentative_hint": "切歌时先进入脉动预览的门槛（默认 0.06 · 范围 0.05–0.95）",
+        "conf.switch": "切歌确认置信度：",
+        "conf.switch_hint": "从脉动真正切到下一首的门槛（默认 0.30 · 范围 0.05–0.95）",
+
         # --- display ---
         "display.title": "可视化显示",
         "display.standby": "待机画面/LOGO图片：",
@@ -199,6 +209,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "anim.rotation": "Rotation Speed (rev/s):",
         "anim.range": "(Range: 0.05–2.0)",
         "anim.beat": "Beat-reactive Rotation",
+
+        # --- confidence thresholds (advanced) ---
+        "conf.title": "⚠️ Recognition Confidence",
+        "conf.warning": "Note: this affects recognition accuracy — test before a live performance. Lower = faster recognition, higher = more accurate.",
+        "conf.first": "First-track confidence:",
+        "conf.first_hint": "floor to accept the first song (default 0.25 · range 0.05–0.95)",
+        "conf.tentative": "Pulse-trigger confidence:",
+        "conf.tentative_hint": "floor that starts the pulsing preview on a new song (default 0.06 · range 0.05–0.95)",
+        "conf.switch": "Switch-confirm confidence:",
+        "conf.switch_hint": "floor to actually switch from pulse to the next song (default 0.30 · range 0.05–0.95)",
 
         # --- display ---
         "display.title": "Visualizer Display",
