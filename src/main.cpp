@@ -27,6 +27,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QGuiApplication>
+#include <QIcon>
 #include <QObject>
 #include <QScreen>
 #include "viz/qt_viz.h"
@@ -271,6 +272,7 @@ static int listenCmd(const std::string& dbPath, int deviceIndex) {
 static int vizCmd(int argc, char** argv, const std::string& dbPath,
                   int deviceIndex) {
     QApplication app(argc, argv);
+    app.setWindowIcon(QIcon(":/viz/VJVision_icon.png"));
 
     VizController ctl;
     QObject::connect(&ctl, &VizController::logMessage, &app,
@@ -289,6 +291,7 @@ static int vizCmd(int argc, char** argv, const std::string& dbPath,
 // M4: main control panel. No command-line argument launches this.
 static int panelCmd(int argc, char** argv) {
     QApplication app(argc, argv);
+    app.setWindowIcon(QIcon(":/viz/VJVision_icon.png"));
     ControlPanel panel;
     panel.show();
     return app.exec();

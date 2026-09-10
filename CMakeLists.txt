@@ -26,7 +26,7 @@ endif()
 
 option(VJVC_WITH_QT "Build the Qt Quick visualizer (M3+)" ON)
 
-add_executable(VJVision
+add_executable(VJVision WIN32
     src/main.cpp
     src/fp/stft.cpp
     src/fp/peaks.cpp
@@ -41,6 +41,7 @@ add_executable(VJVision
     src/util/audio_file.cpp
     src/viz/ipc_pipe.cpp
     src/viz/viz.qrc
+    src/VJVision.rc
 )
 if(VJVC_WITH_QT)
     target_sources(VJVision PRIVATE

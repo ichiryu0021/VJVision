@@ -50,7 +50,7 @@ private:
     void syncPrefs();                 // UI → prefs_ + persist + controller
     void refreshDevices();
     void refreshSongCount();
-    void browseDataDir();
+    void refreshColorBtn();              // apply prefs_.bgColor to button
     void browseMusicDir();
     void startIndex();
     void toggleViz();
@@ -66,15 +66,13 @@ private:
     QPushButton* refreshDevBtn_ = nullptr;
     QProgressBar* levelBar_ = nullptr;   // input level → moved here from Run
 
-    // Database (data folder)
-    QLineEdit* dataDirEdit_ = nullptr;
-    QPushButton* browseDataBtn_ = nullptr;
+    // Database (data folder always <exe_dir>/data, music dir user-selectable)
+    QLineEdit* dirEdit_ = nullptr;
+    QPushButton* browseDirBtn_ = nullptr;
     QPushButton* indexBtn_ = nullptr;
     QProgressBar* indexBar_ = nullptr;
     QLabel* indexLabel_ = nullptr;
     QLabel* songCountLabel_ = nullptr;
-    QLineEdit* dirEdit_ = nullptr;
-    QPushButton* browseDirBtn_ = nullptr;
 
     // Visual / logo / background
     QLineEdit* standbyEdit_ = nullptr;
@@ -88,6 +86,11 @@ private:
     QLabel* bgRowLabel_ = nullptr;           // dynamic label: "bgColor" / "bgVideo"
     QSlider* overlaySlider_ = nullptr;       // replaces blur slider
     QLabel* overlayLabel_ = nullptr;          // shows "0%" ~ "100%"
+    QComboBox* vizModeCombo_ = nullptr;      // 波形模式
+    QSlider* logoStandbySlider_ = nullptr;  // standby logo size slider (×100)
+    QLabel* logoStandbyLabel_ = nullptr;
+    QSlider* logoPlayingSlider_ = nullptr;   // playing logo size slider (×100)
+    QLabel* logoPlayingLabel_ = nullptr;
 
     // Thresholds
     QDoubleSpinBox* noiseSpin_ = nullptr;
