@@ -53,6 +53,14 @@ const char* tr2(const QString& lang, const char* key) {
         {"bgMode",         "背景来源",                     "Bg source"},
         {"bgDefault",      "默认（内置）",                  "Default (built-in)"},
         {"bgCustom",       "自定义",                       "Custom"},
+        {"vizMode",        "波形模式",                     "Waveform mode"},
+        {"vizMirrored",    "镜像柱状",                     "Mirrored bars"},
+        {"vizCentered",    "居中柱状",                     "Centered bars"},
+        {"vizRadial",      "放射状",                       "Radial"},
+        {"vizWaterfall",   "瀑布图",                       "Waterfall"},
+        {"logoStandby",    "待机 Logo 大小",               "Standby logo size"},
+        {"logoPlaying",    "播放 Logo 大小",               "Playing logo size"},
+        {"resetSize",      "默认",                         "Default"},
         {"grpThr",         "识别阈值（即时生效）",         "Recognition thresholds (live)"},
         {"noise",          "噪声下限",                     "Noise floor"},
         {"first",          "首曲确认",                     "First-track accept"},
@@ -154,13 +162,6 @@ void ControlPanel::buildUi() {
     // --- Database -------------------------------------------------------
     grpLib_ = new QGroupBox;
     auto* libForm = new QFormLayout(grpLib_);
-    auto* dataRow = new QHBoxLayout();
-    dataDirEdit_ = new QLineEdit;
-    browseDataBtn_ = new QPushButton;
-    connect(browseDataBtn_, &QPushButton::clicked, this, &ControlPanel::browseDataDir);
-    dataRow->addWidget(dataDirEdit_, 1);
-    dataRow->addWidget(browseDataBtn_);
-    libForm->addRow(lbl("dataDir"), dataRow);
     auto* dirRow = new QHBoxLayout();
     dirEdit_ = new QLineEdit;
     browseDirBtn_ = new QPushButton;
@@ -207,6 +208,59 @@ void ControlPanel::buildUi() {
     standbyRow->addWidget(browseStandbyBtn_);
     standbyRow->addWidget(clearStandbyBtn_);
     visForm->addRow(lbl("standby"), standbyRow);
+
+    // --- Logo size sliders (right after standby row) ---
+    {
+        auto* row1 = new QHBoxLayout;
+        logoStandbySlider_ = new QSlider(Qt::Horizontal);
+        logoStandbySlider_->setRange(30, 150);          // 0.30× – 1.50×, stored ×100
+        // setValue AFTER setRange, but blockSignals to avoid any spurious valueChanged
+        logoStandbySlider_->blockSignals(true);
+        logoStandbySlider_->setValue(100);               // 100 → 1.00× default
+        logoStandbySlider_->blockSignals(false);
+        logoStandbyLabel_ = new QLabel("1.00×");
+        logoStandbyLabel_->setFixedWidth(45);
+        auto* resetStandbyBtn = new QPushButton(t("resetSize"));
+        resetStandbyBtn->setFixedWidth(50);
+        row1->addWidget(logoStandbySlider_, 1);
+        row1->addWidget(logoStandbyLabel_);
+        row1->addWidget(resetStandbyBtn);
+        visForm->addRow(lbl("logoStandby"), row1);
+
+        auto* row2 = new QHBoxLayout;
+        logoPlayingSlider_ = new QSlider(Qt::Horizontal);
+        logoPlayingSlider_->setRange(5, 80);             // 0.05× – 0.80×, stored ×100
+        logoPlayingSlider_->blockSignals(true);
+        logoPlayingSlider_->setValue(30);                // 30 → 0.30× default
+        logoPlayingSlider_->blockSignals(false);
+        logoPlayingLabel_ = new QLabel("0.30×");
+        logoPlayingLabel_->setFixedWidth(45);
+        auto* resetPlayingBtn = new QPushButton(t("resetSize"));
+        resetPlayingBtn->setFixedWidth(50);
+        row2->addWidget(logoPlayingSlider_, 1);
+        row2->addWidget(logoPlayingLabel_);
+        row2->addWidget(resetPlayingBtn);
+        visForm->addRow(lbl("logoPlaying"), row2);
+
+        auto updateStandbyLbl = [this](int v) {
+            logoStandbyLabel_->setText(QStringLiteral("%1×").arg(v / 100.0, 0, 'f', 2));
+        };
+        auto updatePlayingLbl = [this](int v) {
+            logoPlayingLabel_->setText(QStringLiteral("%1×").arg(v / 100.0, 0, 'f', 2));
+        };
+        connect(logoStandbySlider_, &QSlider::valueChanged, this, [this, updateStandbyLbl](int v) {
+            updateStandbyLbl(v); syncPrefs();
+        });
+        connect(logoPlayingSlider_, &QSlider::valueChanged, this, [this, updatePlayingLbl](int v) {
+            updatePlayingLbl(v); syncPrefs();
+        });
+        connect(resetStandbyBtn, &QPushButton::clicked, this, [this] {
+            logoStandbySlider_->setValue(100);
+        });
+        connect(resetPlayingBtn, &QPushButton::clicked, this, [this] {
+            logoPlayingSlider_->setValue(30);
+        });
+    }
     // Background source mode: Default (built-in) vs Custom
     auto* bgModeCombo = new QComboBox;
     bgModeCombo->addItem(t("bgDefault"), 0);
@@ -224,19 +278,8 @@ void ControlPanel::buildUi() {
     bgVideoEdit_ = new QLineEdit;
     browseBgBtn_ = new QPushButton;
     clearBgBtn_ = new QPushButton;
-    auto refreshColorBtn = [this]() {
-        QColor c(prefs_.bgColor);
-        QColor hover = c.lighter(115);   // slightly lighter on hover, no white flash
-        QString tc = (c.lightness() > 128) ? "#000" : "#fff";
-        bgColorBtn_->setText(prefs_.bgColor);
-        bgColorBtn_->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: %1; color: %2; border: 1px solid rgba(128,128,128,80); border-radius: 3px; padding: 2px 6px; }"
-            "QPushButton:hover { background-color: %3; border: 1px solid rgba(180,180,180,140); }"
-            "QPushButton:pressed { background-color: %1; }")
-            .arg(prefs_.bgColor, tc, hover.name()));
-    };
     refreshColorBtn();
-    connect(bgColorBtn_, &QPushButton::clicked, this, [this, refreshColorBtn] {
+    connect(bgColorBtn_, &QPushButton::clicked, this, [this] {
         QColor current(prefs_.bgColor);
         QColor c = QColorDialog::getColor(current, this, tr2(prefs_.language, "bgColor"));
         if (c.isValid()) {
@@ -302,6 +345,18 @@ void ControlPanel::buildUi() {
     overlayRow->addWidget(overlayLabel_);
     visForm->addRow(lbl("bgOverlay"), overlayRow);
 
+    // Waveform / spectrum visualization mode
+    vizModeCombo_ = new QComboBox;
+    vizModeCombo_->addItem(t("vizMirrored"), 0);
+    vizModeCombo_->addItem(t("vizRadial"), 1);
+    vizModeCombo_->addItem(t("vizWaterfall"), 2);
+    connect(vizModeCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this,
+            [this](int idx) {
+        prefs_.vizMode = idx;
+        syncPrefs();
+    });
+    visForm->addRow(lbl("vizMode"), vizModeCombo_);
+
     connect(bgModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this,
             [this, updateBgRowForMode](int m) {
                 updateBgRowForMode(m);
@@ -331,7 +386,7 @@ void ControlPanel::buildUi() {
     switchSpin_ = makeSpin(0.30);
     confirmSpin_ = new QSpinBox;
     confirmSpin_->setRange(1, 5);
-    confirmSpin_->setValue(2);
+    confirmSpin_->setValue(1);
     thrForm->addRow(lbl("noise"), noiseSpin_);
     thrForm->addRow(lbl("first"), firstSpin_);
     thrForm->addRow(lbl("switch"), switchSpin_);
@@ -345,7 +400,7 @@ void ControlPanel::buildUi() {
         noiseSpin_->setValue(0.13);
         firstSpin_->setValue(0.25);
         switchSpin_->setValue(0.30);
-        confirmSpin_->setValue(2);
+        confirmSpin_->setValue(1);
         syncPrefs();
     });
     resetRow->addWidget(resetBtn);
@@ -395,13 +450,15 @@ void ControlPanel::retranslate() {
     grpThr_->setTitle(t("grpThr"));
     grpRun_->setTitle(t("grpRun"));
     refreshDevBtn_->setText(t("refresh"));
-    browseDataBtn_->setText(t("browse"));
     browseDirBtn_->setText(t("browse"));
     browseStandbyBtn_->setText(t("browse"));
     browseBgBtn_->setText(t("browse"));
     clearStandbyBtn_->setText(t("clear"));
     clearBgBtn_->setText(t("clear"));
     indexBtn_->setText(indexing_.load() ? t("indexing") : t("index"));
+    vizModeCombo_->setItemText(0, t("vizMirrored"));
+    vizModeCombo_->setItemText(1, t("vizRadial"));
+    vizModeCombo_->setItemText(2, t("vizWaterfall"));
     if (controller_ && controller_->isRunning()) {
         vizBtn_->setText(t("stopViz"));
     } else {
@@ -418,7 +475,6 @@ void ControlPanel::retranslate() {
 }
 
 void ControlPanel::loadPrefsToUi() {
-    dataDirEdit_->setText(prefs_.dataDir);
     dirEdit_->setText(prefs_.musicDir);
     standbyEdit_->setText(prefs_.standbyPath);
     bgVideoEdit_->setText(prefs_.bgVideoPath);
@@ -429,12 +485,21 @@ void ControlPanel::loadPrefsToUi() {
     firstSpin_->setValue(prefs_.match.firstTrackAccept);
     switchSpin_->setValue(prefs_.match.switchAccept);
     confirmSpin_->setValue(prefs_.match.confirmFrames);
+    vizModeCombo_->setCurrentIndex(prefs_.vizMode);
+    logoStandbySlider_->blockSignals(true);
+    logoStandbySlider_->setValue(int(prefs_.logoSizeStandby * 100));
+    logoStandbySlider_->blockSignals(false);
+    logoStandbyLabel_->setText(QStringLiteral("%1×").arg(logoStandbySlider_->value() / 100.0, 0, 'f', 2));
+    logoPlayingSlider_->blockSignals(true);
+    logoPlayingSlider_->setValue(int(prefs_.logoSizePlaying * 100));
+    logoPlayingSlider_->blockSignals(false);
+    logoPlayingLabel_->setText(QStringLiteral("%1×").arg(logoPlayingSlider_->value() / 100.0, 0, 'f', 2));
+    refreshColorBtn();
     const int li = langCombo_->findData(prefs_.language);
     if (li >= 0) langCombo_->setCurrentIndex(li);
 }
 
 void ControlPanel::syncPrefs() {
-    prefs_.dataDir = dataDirEdit_->text().trimmed();
     prefs_.musicDir = dirEdit_->text().trimmed();
     prefs_.standbyPath = standbyEdit_->text().trimmed();
     prefs_.bgMode = bgModeCombo_->currentIndex();   // 0=default, 1=custom
@@ -445,6 +510,10 @@ void ControlPanel::syncPrefs() {
     prefs_.match.firstTrackAccept = (float)firstSpin_->value();
     prefs_.match.switchAccept = (float)switchSpin_->value();
     prefs_.match.confirmFrames = confirmSpin_->value();
+    prefs_.bgColor = bgColorBtn_->property("color").toString();
+    prefs_.vizMode = vizModeCombo_->currentIndex();
+    prefs_.logoSizeStandby = logoStandbySlider_->value() / 100.0f;
+    prefs_.logoSizePlaying = logoPlayingSlider_->value() / 100.0f;
     prefs_.save();
     if (controller_) {
         controller_->setMatchParams(prefs_.match);
@@ -459,6 +528,9 @@ void ControlPanel::syncPrefs() {
             : QString());
         controller_->setBgOverlayDepth(prefs_.bgOverlayDepth);
         controller_->setBgColor(prefs_.bgColor);
+        controller_->setVizMode(prefs_.vizMode);
+        controller_->setLogoSizeStandby(prefs_.logoSizeStandby);
+        controller_->setLogoSizePlaying(prefs_.logoSizePlaying);
     }
 }
 
@@ -495,15 +567,18 @@ void ControlPanel::refreshSongCount() {
     }
 }
 
-void ControlPanel::browseDataDir() {
-    const QString d = QFileDialog::getExistingDirectory(
-        this, t("dataDir"), dataDirEdit_->text().isEmpty()
-                              ? Prefs::defaultDataDir() : dataDirEdit_->text());
-    if (!d.isEmpty()) {
-        dataDirEdit_->setText(QDir::toNativeSeparators(d));
-        syncPrefs();
-        refreshSongCount();
-    }
+void ControlPanel::refreshColorBtn() {
+    QColor c(prefs_.bgColor);
+    if (prefs_.bgColor.isEmpty()) { c = "#000000"; prefs_.bgColor = "#000000"; }
+    QColor hover = c.lighter(115);
+    QString tc = (c.lightness() > 128) ? "#000" : "#fff";
+    bgColorBtn_->setText(prefs_.bgColor);
+    bgColorBtn_->setProperty("color", prefs_.bgColor);
+    bgColorBtn_->setStyleSheet(QStringLiteral(
+        "QPushButton { background-color: %1; color: %2; border: 1px solid rgba(128,128,128,80); border-radius: 3px; padding: 2px 6px; }"
+        "QPushButton:hover { background-color: %3; border: 1px solid rgba(180,180,180,140); }"
+        "QPushButton:pressed { background-color: %1; }")
+        .arg(prefs_.bgColor, tc, hover.name()));
 }
 
 void ControlPanel::browseMusicDir() {
@@ -631,7 +706,9 @@ void ControlPanel::toggleViz() {
         controller_->setBgVideoPath(bgUrl);
         controller_->setBgOverlayDepth(prefs_.bgOverlayDepth);
         controller_->setBgColor(prefs_.bgColor);
-        appendLog(QStringLiteral("[push] bgOverlayDepth = %1  bgColor = %2").arg(prefs_.bgOverlayDepth, 0, 'f', 2).arg(prefs_.bgColor));
+        controller_->setVizMode(prefs_.vizMode);
+        appendLog(QStringLiteral("[push] bgOverlayDepth = %1  bgColor = %2  vizMode = %3")
+            .arg(prefs_.bgOverlayDepth, 0, 'f', 2).arg(prefs_.bgColor).arg(prefs_.vizMode));
     }
 }
 

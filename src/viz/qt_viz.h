@@ -39,6 +39,9 @@ class QtVizSink : public QObject, public VizSink {
     // Flat list [r0,g0,b0, r1,g1,b1, r2,g2,b2] — integers 0-255.
     // QML Canvas binds this and does its own lerp for fade transitions.
     Q_PROPERTY(QVariantList effectiveColors READ effectiveColors NOTIFY effectiveColorsChanged)
+    Q_PROPERTY(int vizMode READ vizMode NOTIFY vizModeChanged)
+    Q_PROPERTY(float logoSizeStandby READ logoSizeStandby NOTIFY logoSizeStandbyChanged)
+    Q_PROPERTY(float logoSizePlaying READ logoSizePlaying NOTIFY logoSizePlayingChanged)
 
 public:
     explicit QtVizSink(QObject* parent = nullptr);
@@ -158,6 +161,27 @@ public:
     QVariantList standbyColors() const { return standbyColors_; }
     QVariantList effectiveColors() const { return effectiveColors_; }
 
+    int vizMode() const { return vizMode_; }
+    Q_INVOKABLE void setVizMode(int v) {
+        v = qBound(0, v, 2);
+        fprintf(stderr, "[QtVizSink] setVizMode: %d → %d\n", vizMode_, v);
+        if (vizMode_ != v) { vizMode_ = v; emit vizModeChanged(); }
+        else emit vizModeChanged();  // always emit so QML gets initial push
+    }
+
+    float logoSizeStandby() const { return logoSizeStandby_; }
+    Q_INVOKABLE void setLogoSizeStandby(float v) {
+        v = qBound(0.3f, v, 1.5f);
+        if (!qFuzzyCompare(logoSizeStandby_, v)) { logoSizeStandby_ = v; emit logoSizeStandbyChanged(); }
+        else emit logoSizeStandbyChanged();
+    }
+    float logoSizePlaying() const { return logoSizePlaying_; }
+    Q_INVOKABLE void setLogoSizePlaying(float v) {
+        v = qBound(0.05f, v, 0.8f);
+        if (!qFuzzyCompare(logoSizePlaying_, v)) { logoSizePlaying_ = v; emit logoSizePlayingChanged(); }
+        else emit logoSizePlayingChanged();
+    }
+
 signals:
     void trackChanged();
     void binsChanged();
@@ -169,6 +193,9 @@ signals:
     void effectiveColorsChanged();
     void bgOverlayDepthChanged();
     void bgColorChanged();
+    void vizModeChanged();
+    void logoSizeStandbyChanged();
+    void logoSizePlayingChanged();
 
     // Cross-thread transport (emitted from worker threads).
     void sigTrack(bool valid, QString title, QString artist, QString album,
@@ -198,6 +225,9 @@ private:
     QVariantList trackColors_{QColor(48,80,120), QColor(80,48,120), QColor(120,48,80)};
     QVariantList standbyColors_;   // empty → will be filled when standbyPath is set
     QVariantList effectiveColors_; // flat [r0,g0,b0, r1,g1,b1, r2,g2,b2]
+    int vizMode_ = 0;
+    float logoSizeStandby_ = 1.0f;
+    float logoSizePlaying_ = 0.30f;
 };
 
 } // namespace vj

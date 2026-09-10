@@ -58,6 +58,15 @@ void VizController::setBgOverlayDepth(float v) {
 void VizController::setBgColor(const QString& hex) {
     if (qtSink_) qtSink_->setBgColor(hex);
 }
+void VizController::setVizMode(int v) {
+    if (qtSink_) qtSink_->setVizMode(v);
+}
+void VizController::setLogoSizeStandby(float v) {
+    if (qtSink_) qtSink_->setLogoSizeStandby(v);
+}
+void VizController::setLogoSizePlaying(float v) {
+    if (qtSink_) qtSink_->setLogoSizePlaying(v);
+}
 
 bool VizController::start(const std::string& dbPath, int deviceIndex) {
     if (running_.load()) return false;

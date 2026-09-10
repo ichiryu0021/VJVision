@@ -17,6 +17,9 @@ struct Prefs {
     float bgOverlayDepth = 0.5f; // 0 = no dim, 1 = fully black — dark overlay for legibility
     QString bgColor = "#000000"; // default background color (hex "#RRGGBB") — used when bgMode==0
     QString language = "zh";   // "zh" | "en"
+    int vizMode = 0;           // 0=Mirrored Bars, 1=Radial, 2=Waterfall
+    float logoSizeStandby = 1.0f;   // standby logo ratio (1.0 = full window)
+    float logoSizePlaying = 0.30f;  // playing logo ratio (landscape default 0.30)
     MatchParams match;         // live recognition thresholds
 
     // Convenience: resolve <dataDir>/VJVision.db (empty if dataDir empty)

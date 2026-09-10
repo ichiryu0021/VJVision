@@ -71,6 +71,9 @@ Window {
         readonly property var effectiveColors: root._mock
             ? [224, 235, 255, 255, 179, 102, 115, 230, 191]
             : viz.effectiveColors
+        readonly property int vizMode: root._mock ? 0 : viz.vizMode
+        readonly property real logoSizeStandby: root._mock ? 1.0 : viz.logoSizeStandby
+        readonly property real logoSizePlaying: root._mock ? 0.29 : viz.logoSizePlaying
     }
 
     // F toggles fullscreen on the screen the window is currently on.
@@ -147,9 +150,23 @@ Window {
     // --- Standby image ---
     //   idle (no track): centered, 100% scale (image fills window)
     //   playing bottom-centered — separate tunables for landscape / portrait
-    property real standbySizeStandbyRatio: 1.00
-    property real standbySizePlayingLandRatio: 0.29    // landscape playing logo size
-    property real standbySizePlayingPortRatio: 0.40    // portrait playing logo size (bigger)
+    property real standbySizeStandbyRatio: mx.logoSizeStandby
+        onStandbySizeStandbyRatioChanged: {
+            // Slider changed — instantly apply to standby mode, but don't
+            // clobber fade-in / fade-out animation that's currently running.
+            if (!mx.hasTrack && !fadeInSeq.running && !fadeOutSeq.running)
+                standbySizeAnim = standbySizeStandbyRatio
+        }
+    property real standbySizePlayingLandRatio: mx.logoSizePlaying
+        onStandbySizePlayingLandRatioChanged: {
+            if (mx.hasTrack && !fadeInSeq.running && !fadeOutSeq.running)
+                standbySizeAnim = standbySizePlayingLandRatio
+        }
+    property real standbySizePlayingPortRatio: mx.logoSizePlaying * 1.38
+        onStandbySizePlayingPortRatioChanged: {
+            if (mx.hasTrack && !fadeInSeq.running && !fadeOutSeq.running)
+                standbySizeAnim = standbySizePlayingPortRatio
+        }
     property real standbyYStandbyRatio: 0.50           // vertical center when idle
     property real standbyYPlayingLandRatio: 0.90       // landscape: near bottom
     property real standbyYPlayingPortRatio: 0.94       // portrait: further down
@@ -542,6 +559,7 @@ Window {
         readonly property real barMaxH: barH
 
         Row {
+            visible: mx.vizMode === 0
             anchors.fill: parent
             spacing: spectrum.width / 64 * 0.25
             Repeater {
@@ -579,6 +597,61 @@ Window {
                         color: "#ffffff"
                         opacity: parent.cap > 0.03 ? 0.9 : 0
                     }
+                }
+            }
+        }
+
+        // ===== Mode 1: Radial — starburst emanating from center =====
+        Item {
+            visible: mx.vizMode === 1
+            anchors.fill: parent
+
+            Repeater {
+                model: 64
+                delegate: Rectangle {
+                    readonly property real v: (mx.bins !== undefined && mx.bins[index] !== undefined ? mx.bins[index] : 0)
+                    readonly property real maxR: Math.min(spectrum.width * 0.55, spectrum.height * 0.85)
+
+                    // Bar's LEFT edge is at the EXACT center of spectrum
+                    // transformOrigin: Item.Left → rotation pivot IS at center
+                    width: Math.max(v * maxR, 2)
+                    height: Math.max(maxR * 0.03, 3)
+                    x: spectrum.width / 2
+                    y: spectrum.height / 2 - height / 2
+                    transformOrigin: Item.Left
+                    rotation: (index / 64) * 360
+
+                    color: Qt.hsla(root.trackHue / 360, 0.55, 0.35 + v * 0.4, 1)
+                    opacity: Math.min(v + 0.15, 1)
+                    Behavior on width { SmoothedAnimation { duration: 90 } }
+                }
+            }
+
+            // Central hub covers the messy center overlap
+            Rectangle {
+                width: 30; height: 30
+                x: spectrum.width / 2 - 15
+                y: spectrum.height / 2 - 15
+                radius: 15
+                color: Qt.hsla(root.trackHue / 360, 0.4, 0.18, 1)
+            }
+        }
+
+        // ===== Mode 2: Waterfall — bars hang from top =====
+        Row {
+            visible: mx.vizMode === 2
+            anchors.fill: parent
+            spacing: spectrum.width / 64 * 0.2
+            Repeater {
+                model: 64
+                delegate: Rectangle {
+                    readonly property real v: (mx.bins[index] !== undefined ? mx.bins[index] : 0)
+                    width: (parent.width - parent.spacing * 63) / 64
+                    height: Math.max(v * spectrum.height * 1.2, 2)
+                    x: index * (width + parent.spacing)
+                    y: 0
+                    color: Qt.hsla(root.trackHue / 360, 0.45 + v * 0.3, 0.55 - v * 0.25, 0.9)
+                    Behavior on height { SmoothedAnimation { duration: 100 } }
                 }
             }
         }
@@ -686,18 +759,10 @@ Window {
             Text {
                 width: textBlock.width
                 horizontalAlignment: root.landscape ? Text.AlignLeft : Text.AlignHCenter
-                text: mx.tentative ? "识别中…" : "♫ " + (mx.albumText !== "" ? mx.albumText : "")
+                text: "♫ " + (mx.albumText !== "" ? mx.albumText : "")
                 font { family: "Microsoft YaHei"; pixelSize: root.landscape ? root.vmin * 0.020 : root.vmin * 0.03 }
-                color: mx.tentative ? "#ffd166" : "#6b76a8"
-                visible: mx.tentative || mx.albumText !== ""
-            }
-
-            // tentative pulsing: fade the whole text block
-            NumberAnimation on opacity {
-                running: mx.hasTrack && mx.tentative
-                from: 1.0; to: 0.35; duration: 650
-                loops: Animation.Infinite
-                easing.type: Easing.InOutSine
+                color: "#6b76a8"
+                visible: mx.albumText !== ""
             }
         }
     }
@@ -731,9 +796,8 @@ Window {
         y: root.height * root.standbyYAnim - height / 2
         z: 100
 
-        // Standby logo — works for all formats:
-        //   GIF/WEBP  → AnimatedImage auto-plays + preserves alpha channel ✅
-        //   PNG/JPG   → AnimatedImage shows as static image (one frame) ✅
+        // AnimatedImage auto-plays GIF/WEBP. No extra props needed.
+        // Loop count comes from the GIF file header (0 = infinite loop).
         AnimatedImage {
             id: standbyImg
             anchors.fill: parent

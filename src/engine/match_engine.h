@@ -43,7 +43,7 @@ struct MatchParams {
     float noiseFloor = 0.13f;        // tentative_min_confidence
     float firstTrackAccept = 0.25f;  // first_track_min_confidence
     float switchAccept = 0.30f;      // switch_min_confidence
-    int   confirmFrames = 2;         // match_confirmations (consecutive hits)
+    int   confirmFrames = 1;         // match_confirmations (consecutive hits)
     int   tentativeBreak = 3;        // consecutive different-song tentative hits to release lock
     int   historySize = 4;           // mix detection window
 };

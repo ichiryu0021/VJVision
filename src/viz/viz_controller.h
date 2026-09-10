@@ -54,6 +54,9 @@ public:
     void setBgVideoPath(const QString& path);
     void setBgOverlayDepth(float v);      // 0..1
     void setBgColor(const QString& hex);
+    void setVizMode(int v);
+    void setLogoSizeStandby(float v);
+    void setLogoSizePlaying(float v);
 
 signals:
     // Emitted from the worker thread; arrives queued on the GUI thread.

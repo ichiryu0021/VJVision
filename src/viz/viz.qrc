@@ -1,5 +1,9 @@
 <RCC>
     <qresource prefix="/viz">
         <file>qml/viz.qml</file>
+        <file>qml/VizMirroredBars.qml</file>
+        <file>qml/VizRadial.qml</file>
+        <file>qml/VizWaterfall.qml</file>
+        <file>qml/VJVision_icon.png</file>
     </qresource>
 </RCC>
