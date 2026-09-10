@@ -192,7 +192,7 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
     // Cover extraction: tags are read once per song and cached to disk
     // next to the DB; QML loads the cached image directly.
     const fs::path coverDir = pathutil::fromUtf8(dbPath).parent_path()
-                              / ".vjvcplus_covers";
+                              / ".VJVision_covers";
     int lastCoverSong = -1;
     TrackEvent cachedTrack;
     auto buildTrackEvent = [&](int songId, bool tentative, float conf) -> TrackEvent {

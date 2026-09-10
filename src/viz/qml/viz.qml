@@ -6,7 +6,7 @@ Window {
     id: root
     visible: true
     color: "#05060a"
-    title: "VJVCPlus Visualizer"
+    title: "VJVision Visualizer"
     width: 960
     height: 540
     minimumWidth: 320

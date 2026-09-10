@@ -5,7 +5,7 @@
 // exist today:
 //   * QtVizSink   — in-process Qt Quick window (M3)
 //   * IpcVizSink  — broadcasts newline-delimited JSON over a Windows named
-//                   pipe (\\.\pipe\vjvcplus_viz) so an external renderer
+//                   pipe (\\.\pipe\VJVision_viz) so an external renderer
 //                   (e.g. a future Unity player) can subscribe with zero
 //                   changes to the C++ core.
 // A MulticastSink fans events out to any number of sinks.

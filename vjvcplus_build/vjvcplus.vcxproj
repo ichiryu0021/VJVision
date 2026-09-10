@@ -1,0 +1,583 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{34FAD5DB-AF81-3F2B-8201-0C24078EC42A}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>vjvcplus</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">vjvcplus.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">vjvcplus</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">vjvcplus.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">vjvcplus</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">vjvcplus.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">vjvcplus</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">vjvcplus.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">vjvcplus</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_Debug;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtGui" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtCore" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/mkspecs/win32-msvc" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQuick" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQml" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlIntegration" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtNetwork" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlMeta" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlModels" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlWorkerScript" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtOpenGL" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtWidgets" /utf-8 -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VJVC_WITH_QT=1;_CRT_SECURE_NO_WARNINGS;NOMINMAX;QT_GUI_LIB;QT_CORE_LIB;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_QUICK_LIB;QT_QML_LIB;QT_QMLINTEGRATION_LIB;QT_NETWORK_LIB;QT_QMLMETA_LIB;QT_QMLMODELS_LIB;QT_QMLWORKERSCRIPT_LIB;QT_OPENGL_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;VJVC_WITH_QT=1;_CRT_SECURE_NO_WARNINGS;NOMINMAX;QT_GUI_LIB;QT_CORE_LIB;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_QUICK_LIB;QT_QML_LIB;QT_QMLINTEGRATION_LIB;QT_NETWORK_LIB;QT_QMLMETA_LIB;QT_QMLMODELS_LIB;QT_QMLWORKERSCRIPT_LIB;QT_OPENGL_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_Debug;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtGui;C:\Users\jason\Qt\6.8.3\msvc2022_64\include;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtCore;C:\Users\jason\Qt\6.8.3\msvc2022_64\mkspecs\win32-msvc;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQuick;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQml;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlIntegration;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtNetwork;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlMeta;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlModels;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlWorkerScript;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtOpenGL;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_Debug;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtGui;C:\Users\jason\Qt\6.8.3\msvc2022_64\include;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtCore;C:\Users\jason\Qt\6.8.3\msvc2022_64\mkspecs\win32-msvc;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQuick;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQml;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlIntegration;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtNetwork;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlMeta;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlModels;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlWorkerScript;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtOpenGL;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>Debug\pffft.lib;Debug\sqlite3.lib;ole32.lib;shell32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Quickd.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Widgetsd.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlMetad.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlWorkerScriptd.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlModelsd.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Qmld.lib;shell32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6OpenGLd.lib;user32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Networkd.lib;ws2_32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Guid.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Cored.lib;mpr.lib;userenv.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/Debug/vjvcplus.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/Debug/vjvcplus.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_Release;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtGui" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtCore" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/mkspecs/win32-msvc" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQuick" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQml" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlIntegration" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtNetwork" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlMeta" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlModels" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlWorkerScript" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtOpenGL" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtWidgets" /utf-8 -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;VJVC_WITH_QT=1;_CRT_SECURE_NO_WARNINGS;NOMINMAX;QT_GUI_LIB;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_QUICK_LIB;QT_QML_LIB;QT_QMLINTEGRATION_LIB;QT_NETWORK_LIB;QT_QMLMETA_LIB;QT_QMLMODELS_LIB;QT_QMLWORKERSCRIPT_LIB;QT_OPENGL_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;VJVC_WITH_QT=1;_CRT_SECURE_NO_WARNINGS;NOMINMAX;QT_GUI_LIB;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_QUICK_LIB;QT_QML_LIB;QT_QMLINTEGRATION_LIB;QT_NETWORK_LIB;QT_QMLMETA_LIB;QT_QMLMODELS_LIB;QT_QMLWORKERSCRIPT_LIB;QT_OPENGL_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_Release;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtGui;C:\Users\jason\Qt\6.8.3\msvc2022_64\include;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtCore;C:\Users\jason\Qt\6.8.3\msvc2022_64\mkspecs\win32-msvc;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQuick;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQml;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlIntegration;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtNetwork;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlMeta;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlModels;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlWorkerScript;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtOpenGL;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_Release;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtGui;C:\Users\jason\Qt\6.8.3\msvc2022_64\include;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtCore;C:\Users\jason\Qt\6.8.3\msvc2022_64\mkspecs\win32-msvc;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQuick;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQml;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlIntegration;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtNetwork;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlMeta;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlModels;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlWorkerScript;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtOpenGL;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>Release\pffft.lib;Release\sqlite3.lib;ole32.lib;shell32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Quick.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Widgets.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlMeta.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlWorkerScript.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlModels.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Qml.lib;shell32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6OpenGL.lib;user32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Network.lib;ws2_32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Gui.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/Release/vjvcplus.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/Release/vjvcplus.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_MinSizeRel;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtGui" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtCore" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/mkspecs/win32-msvc" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQuick" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQml" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlIntegration" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtNetwork" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlMeta" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlModels" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlWorkerScript" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtOpenGL" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtWidgets" /utf-8 -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;VJVC_WITH_QT=1;_CRT_SECURE_NO_WARNINGS;NOMINMAX;QT_GUI_LIB;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_QUICK_LIB;QT_QML_LIB;QT_QMLINTEGRATION_LIB;QT_NETWORK_LIB;QT_QMLMETA_LIB;QT_QMLMODELS_LIB;QT_QMLWORKERSCRIPT_LIB;QT_OPENGL_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;VJVC_WITH_QT=1;_CRT_SECURE_NO_WARNINGS;NOMINMAX;QT_GUI_LIB;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_QUICK_LIB;QT_QML_LIB;QT_QMLINTEGRATION_LIB;QT_NETWORK_LIB;QT_QMLMETA_LIB;QT_QMLMODELS_LIB;QT_QMLWORKERSCRIPT_LIB;QT_OPENGL_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_MinSizeRel;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtGui;C:\Users\jason\Qt\6.8.3\msvc2022_64\include;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtCore;C:\Users\jason\Qt\6.8.3\msvc2022_64\mkspecs\win32-msvc;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQuick;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQml;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlIntegration;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtNetwork;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlMeta;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlModels;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlWorkerScript;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtOpenGL;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_MinSizeRel;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtGui;C:\Users\jason\Qt\6.8.3\msvc2022_64\include;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtCore;C:\Users\jason\Qt\6.8.3\msvc2022_64\mkspecs\win32-msvc;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQuick;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQml;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlIntegration;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtNetwork;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlMeta;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlModels;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlWorkerScript;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtOpenGL;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>MinSizeRel\pffft.lib;MinSizeRel\sqlite3.lib;ole32.lib;shell32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Quick.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Widgets.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlMeta.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlWorkerScript.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlModels.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Qml.lib;shell32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6OpenGL.lib;user32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Network.lib;ws2_32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Gui.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/MinSizeRel/vjvcplus.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/MinSizeRel/vjvcplus.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_RelWithDebInfo;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtGui" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtCore" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/mkspecs/win32-msvc" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQuick" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQml" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlIntegration" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtNetwork" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlMeta" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlModels" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtQmlWorkerScript" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtOpenGL" /external:I "C:/Users/jason/Qt/6.8.3/msvc2022_64/include/QtWidgets" /utf-8 -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;VJVC_WITH_QT=1;_CRT_SECURE_NO_WARNINGS;NOMINMAX;QT_GUI_LIB;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_QUICK_LIB;QT_QML_LIB;QT_QMLINTEGRATION_LIB;QT_NETWORK_LIB;QT_QMLMETA_LIB;QT_QMLMODELS_LIB;QT_QMLWORKERSCRIPT_LIB;QT_OPENGL_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;VJVC_WITH_QT=1;_CRT_SECURE_NO_WARNINGS;NOMINMAX;QT_GUI_LIB;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_QUICK_LIB;QT_QML_LIB;QT_QMLINTEGRATION_LIB;QT_NETWORK_LIB;QT_QMLMETA_LIB;QT_QMLMODELS_LIB;QT_QMLWORKERSCRIPT_LIB;QT_OPENGL_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_RelWithDebInfo;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtGui;C:\Users\jason\Qt\6.8.3\msvc2022_64\include;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtCore;C:\Users\jason\Qt\6.8.3\msvc2022_64\mkspecs\win32-msvc;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQuick;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQml;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlIntegration;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtNetwork;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlMeta;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlModels;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlWorkerScript;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtOpenGL;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\include_RelWithDebInfo;C:\Users\jason\Documents\trae_projects\VJprg\src;C:\Users\jason\Documents\trae_projects\VJprg\third_party\pffft;C:\Users\jason\Documents\trae_projects\VJprg\third_party\sqlite3_extract\sqlite-amalgamation-3490100;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtGui;C:\Users\jason\Qt\6.8.3\msvc2022_64\include;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtCore;C:\Users\jason\Qt\6.8.3\msvc2022_64\mkspecs\win32-msvc;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQuick;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQml;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlIntegration;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtNetwork;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlMeta;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlModels;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtQmlWorkerScript;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtOpenGL;C:\Users\jason\Qt\6.8.3\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>RelWithDebInfo\pffft.lib;RelWithDebInfo\sqlite3.lib;ole32.lib;shell32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Quick.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Widgets.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlMeta.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlWorkerScript.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6QmlModels.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Qml.lib;shell32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6OpenGL.lib;user32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Network.lib;ws2_32.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Gui.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;C:\Users\jason\Qt\6.8.3\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/RelWithDebInfo/vjvcplus.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/RelWithDebInfo/vjvcplus.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\c549b09e014bc248a39cf6866bf8ea36\timestamp_(CONFIG).rule">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Automatic MOC for target vjvcplus</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autogen C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutogenInfo.json Debug
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E touch C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/timestamp_Debug
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_transform_depfile "Visual Studio 17 2022" MSBuildAdditionalInputs C:/Users/jason/Documents/trae_projects/VJprg C:/Users/jason/Documents/trae_projects/VJprg C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/deps_Debug C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/d/5137409375f15ecf8c06ead84b7267cde124fc3f2a5fbc83c6485dece9eb0456.AdditionalInputs
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\jason\Qt\6.8.3\msvc2022_64\bin\moc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\timestamp_Debug</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <DepFileAdditionalInputsFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\d\5137409375f15ecf8c06ead84b7267cde124fc3f2a5fbc83c6485dece9eb0456.AdditionalInputs</DepFileAdditionalInputsFile>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Automatic MOC for target vjvcplus</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autogen C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutogenInfo.json Release
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E touch C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/timestamp_Release
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_transform_depfile "Visual Studio 17 2022" MSBuildAdditionalInputs C:/Users/jason/Documents/trae_projects/VJprg C:/Users/jason/Documents/trae_projects/VJprg C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/deps_Release C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/d/15deae3e50223d0ca90e989261e576919839d4eb7126aa3b1b19fb78cfbecc9e.AdditionalInputs
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\jason\Qt\6.8.3\msvc2022_64\bin\moc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\timestamp_Release</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <DepFileAdditionalInputsFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\d\15deae3e50223d0ca90e989261e576919839d4eb7126aa3b1b19fb78cfbecc9e.AdditionalInputs</DepFileAdditionalInputsFile>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Automatic MOC for target vjvcplus</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autogen C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutogenInfo.json MinSizeRel
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E touch C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/timestamp_MinSizeRel
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_transform_depfile "Visual Studio 17 2022" MSBuildAdditionalInputs C:/Users/jason/Documents/trae_projects/VJprg C:/Users/jason/Documents/trae_projects/VJprg C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/deps_MinSizeRel C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/d/f71b0342280e696bddecd67d937f9d7be590949160b9f996b284d422a0d7ac2b.AdditionalInputs
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\jason\Qt\6.8.3\msvc2022_64\bin\moc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\timestamp_MinSizeRel</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <DepFileAdditionalInputsFile Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\d\f71b0342280e696bddecd67d937f9d7be590949160b9f996b284d422a0d7ac2b.AdditionalInputs</DepFileAdditionalInputsFile>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Automatic MOC for target vjvcplus</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autogen C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutogenInfo.json RelWithDebInfo
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E touch C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/timestamp_RelWithDebInfo
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_transform_depfile "Visual Studio 17 2022" MSBuildAdditionalInputs C:/Users/jason/Documents/trae_projects/VJprg C:/Users/jason/Documents/trae_projects/VJprg C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/deps_RelWithDebInfo C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/d/ca57332c0777e13bdffd8b03b053e7d6c6238671ab6e4707158a799c5409cee8.AdditionalInputs
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\jason\Qt\6.8.3\msvc2022_64\bin\moc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\timestamp_RelWithDebInfo</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+      <DepFileAdditionalInputsFile Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\d\ca57332c0777e13bdffd8b03b053e7d6c6238671ab6e4707158a799c5409cee8.AdditionalInputs</DepFileAdditionalInputsFile>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\f8608fcb35ad879bd87c0aa6c86793cb\qrc_viz_(CONFIG).cpp.rule">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Automatic RCC for src/viz/viz.qrc</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autorcc C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutoRcc_viz_WORAJ6MAXX_Info.json Debug
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\jason\Documents\trae_projects\VJprg\src\viz\viz.qrc;C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\vjvcplus_autogen.dir\AutoRcc_viz_WORAJ6MAXX_Info.json;C:\Users\jason\Documents\trae_projects\VJprg\src\viz\qml\viz.qml;C:\Users\jason\Qt\6.8.3\msvc2022_64\bin\rcc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\WORAJ6MAXX\qrc_viz_Debug.cpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Automatic RCC for src/viz/viz.qrc</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autorcc C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutoRcc_viz_WORAJ6MAXX_Info.json Release
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\jason\Documents\trae_projects\VJprg\src\viz\viz.qrc;C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\vjvcplus_autogen.dir\AutoRcc_viz_WORAJ6MAXX_Info.json;C:\Users\jason\Documents\trae_projects\VJprg\src\viz\qml\viz.qml;C:\Users\jason\Qt\6.8.3\msvc2022_64\bin\rcc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\WORAJ6MAXX\qrc_viz_Release.cpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Automatic RCC for src/viz/viz.qrc</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autorcc C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutoRcc_viz_WORAJ6MAXX_Info.json MinSizeRel
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\jason\Documents\trae_projects\VJprg\src\viz\viz.qrc;C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\vjvcplus_autogen.dir\AutoRcc_viz_WORAJ6MAXX_Info.json;C:\Users\jason\Documents\trae_projects\VJprg\src\viz\qml\viz.qml;C:\Users\jason\Qt\6.8.3\msvc2022_64\bin\rcc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\WORAJ6MAXX\qrc_viz_MinSizeRel.cpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Automatic RCC for src/viz/viz.qrc</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autorcc C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutoRcc_viz_WORAJ6MAXX_Info.json RelWithDebInfo
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\jason\Documents\trae_projects\VJprg\src\viz\viz.qrc;C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\CMakeFiles\vjvcplus_autogen.dir\AutoRcc_viz_WORAJ6MAXX_Info.json;C:\Users\jason\Documents\trae_projects\VJprg\src\viz\qml\viz.qml;C:\Users\jason\Qt\6.8.3\msvc2022_64\bin\rcc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\WORAJ6MAXX\qrc_viz_RelWithDebInfo.cpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\mocs_compilation_Debug.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\main.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\fp\stft.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\fp\peaks.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\fp\hashing.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\fp\fp_db.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\fp\align.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\audio\wasapi_capture.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\audio\spectrum.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\engine\match_engine.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\engine\indexer.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\util\tags.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\util\audio_file.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\viz\ipc_pipe.cpp" />
+    <None Include="C:\Users\jason\Documents\trae_projects\VJprg\src\viz\viz.qrc">
+    </None>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\viz\qt_viz.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\viz\viz_controller.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\ui\prefs.cpp" />
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\src\ui\control_panel.cpp" />
+    <None Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\timestamp_Debug">
+    </None>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\WORAJ6MAXX\qrc_viz_Debug.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\mocs_compilation_Release.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <None Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\timestamp_Release">
+    </None>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\WORAJ6MAXX\qrc_viz_Release.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\mocs_compilation_MinSizeRel.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <None Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\timestamp_MinSizeRel">
+    </None>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\WORAJ6MAXX\qrc_viz_MinSizeRel.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\mocs_compilation_RelWithDebInfo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <None Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\timestamp_RelWithDebInfo">
+    </None>
+    <ClCompile Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\vjvcplus_autogen\WORAJ6MAXX\qrc_viz_RelWithDebInfo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\pffft.vcxproj">
+      <Project>{CC69C377-435C-3980-B6D5-B5A975CD75DE}</Project>
+      <Name>pffft</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build\sqlite3.vcxproj">
+      <Project>{6A7480C0-3A47-398F-8482-10A23B62F97D}</Project>
+      <Name>sqlite3</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <Import Project="C:\cmake-4.4.3-windows-x86_64\share\cmake-4.4\Templates\MSBuild\CustomBuildDepFile.targets" />
+</Project>

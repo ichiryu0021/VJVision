@@ -30,7 +30,7 @@ struct FpResult {
     int queryHashes = 0;
 };
 
-// Dejavu-tuned parameters (from VJVCPlus fingerprint.py _optimize_dejavu_params).
+// Dejavu-tuned parameters (from VJVision fingerprint.py _optimize_dejavu_params).
 namespace fp_params {
     constexpr int SAMPLE_RATE = 44100;
     constexpr int FFT_WINDOW = 4096;

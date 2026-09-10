@@ -1,10 +1,10 @@
-"""Reference client for the VJVCPlus visualizer IPC outlet.
+"""Reference client for the VJVision visualizer IPC outlet.
 
-Connects to the named pipe served by `vjvcplus viz` and prints event
+Connects to the named pipe served by `VJVision viz` and prints event
 counts / samples. This is the protocol a future Unity (or any external
 renderer) client must speak:
 
-  * Pipe name : \\\\.\\pipe\\vjvcplus_viz  (byte stream, read-only)
+  * Pipe name : \\\\.\\pipe\\VJVision_viz  (byte stream, read-only)
   * Framing   : one JSON object per line (\\n-terminated), UTF-8
   * Messages  :
       {"type":"status","state":"standby|listening|matched|mixing"}
@@ -17,7 +17,7 @@ Usage:  python ipc_test_client.py
 """
 import time
 
-path = r"\\.\pipe\vjvcplus_viz"
+path = r"\\.\pipe\VJVision_viz"
 deadline = time.time() + 25
 with open(path, "r", encoding="utf-8", errors="replace") as f:
     print("CONNECTED")

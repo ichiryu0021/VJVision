@@ -10,7 +10,7 @@
 
 namespace vj {
 
-static const char* kPipeName = "\\\\.\\pipe\\vjvcplus_viz";
+static const char* kPipeName = "\\\\.\\pipe\\VJVision_viz";
 
 IpcVizSink::IpcVizSink() = default;
 

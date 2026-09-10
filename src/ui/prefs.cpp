@@ -10,7 +10,7 @@ namespace vj {
 namespace {
 QString prefsPath() {
     return QDir(QCoreApplication::applicationDirPath())
-        .filePath("vjvcplus_prefs.json");
+        .filePath("VJVision_prefs.json");
 }
 } // namespace
 

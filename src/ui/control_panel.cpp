@@ -32,7 +32,7 @@ namespace {
 // language-neutral (the "PEAK" indicator is always English by spec).
 const char* tr2(const QString& lang, const char* key) {
     static const struct { const char* k; const char* zh; const char* en; } rows[] = {
-        {"appTitle",       "VJVCPlus 控制面板",            "VJVCPlus Control Panel"},
+        {"appTitle",       "VJVision 控制面板",            "VJVision Control Panel"},
         {"grpAudio",       "音频与显示",                   "Audio & Display"},
         {"device",         "音频设备",                     "Audio device"},
         {"refresh",        "刷新",                         "Refresh"},
@@ -75,7 +75,7 @@ ControlPanel::ControlPanel(QWidget* parent) : QWidget(parent) {
     prefs_ = Prefs::load();
     if (prefs_.dbPath.isEmpty())
         prefs_.dbPath = QDir(QCoreApplication::applicationDirPath())
-                            .filePath("vjvcplus.db");
+                            .filePath("VJVision.db");
     buildUi();
     loadPrefsToUi();
     retranslate();
@@ -96,7 +96,7 @@ ControlPanel::ControlPanel(QWidget* parent) : QWidget(parent) {
     });
     levelTimer_->start(50);
 
-    appendLog(QStringLiteral("VJVCPlus control panel ready."));
+    appendLog(QStringLiteral("VJVision control panel ready."));
 }
 
 ControlPanel::~ControlPanel() = default;

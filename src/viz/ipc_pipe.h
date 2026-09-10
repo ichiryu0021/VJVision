@@ -1,6 +1,6 @@
 // IPC outlet for an external renderer (e.g. a future Unity player).
 //
-// Runs a Windows named-pipe server (\\.\pipe\vjvcplus_viz). Any number of
+// Runs a Windows named-pipe server (\\.\pipe\VJVision_viz). Any number of
 // clients may connect; each receives every event as one newline-terminated
 // JSON object:
 //   {"type":"track","valid":true,"title":"...","artist":"...",

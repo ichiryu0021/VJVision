@@ -15,7 +15,7 @@ struct Prefs {
     QString language = "zh";   // "zh" | "en"
     MatchParams match;         // live recognition thresholds
 
-    // <exe dir>/vjvcplus_prefs.json
+    // <exe dir>/VJVision_prefs.json
     static QString defaultPath();
 
     static Prefs load();       // missing/corrupt file → built-in defaults

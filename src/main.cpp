@@ -1,11 +1,11 @@
-// VJVCPlus — audio fingerprinting CLI.
+// VJVision — audio fingerprinting CLI.
 //
 // Usage:
-//   vjvcplus index <directory> <db_path>     Index all .wav files in directory
-//   vjvcplus query <wav_file> <db_path>      Query a wav clip against the DB
-//   vjvcplus list <db_path>                  List indexed songs
-//   vjvcplus devices                         List audio devices (loopback first)
-//   vjvcplus listen <db_path> [device_idx]   Real-time recognition from system
+//   VJVision index <directory> <db_path>     Index all .wav files in directory
+//   VJVision query <wav_file> <db_path>      Query a wav clip against the DB
+//   VJVision list <db_path>                  List indexed songs
+//   VJVision devices                         List audio devices (loopback first)
+//   VJVision listen <db_path> [device_idx]   Real-time recognition from system
 //                                            loopback (default device if idx -1)
 //
 #include "fp/fingerprint.h"
@@ -309,7 +309,7 @@ static int listScreensCmd(int argc, char** argv) {
                s->devicePixelRatio(),
                s == primary ? "  <- primary (viz default)" : "");
     }
-    printf("Use: vjvcplus viz <db> [device_idx] <screen_idx>\n");
+    printf("Use: VJVision viz <db> [device_idx] <screen_idx>\n");
     return 0;
 #else
     (void)argc; (void)argv;
@@ -354,7 +354,7 @@ int main(int argc, char** argv) {
     }
     std::string cmd = argv[1];
     if (cmd == "help") {
-        printf("VJVCPlus — audio fingerprint recognition\n"
+        printf("VJVision — audio fingerprint recognition\n"
                "Usage:\n"
                "  %s                       Launch control panel (GUI)\n"
                "  %s panel                 Launch control panel (GUI)\n"

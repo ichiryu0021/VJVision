@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(vjvcplus VERSION 2.0.0 LANGUAGES C CXX)
+project(VJVision VERSION 2.0.0 LANGUAGES C CXX)
 
 # VJVision 2.0 — C++ rewrite (v1 was Python/dejavu).
 set(VJVISION_VERSION "2.0.0" CACHE STRING "VJVision version string")
@@ -26,7 +26,7 @@ endif()
 
 option(VJVC_WITH_QT "Build the Qt Quick visualizer (M3+)" ON)
 
-add_executable(vjvcplus
+add_executable(VJVision
     src/main.cpp
     src/fp/stft.cpp
     src/fp/peaks.cpp
@@ -43,30 +43,30 @@ add_executable(vjvcplus
     src/viz/viz.qrc
 )
 if(VJVC_WITH_QT)
-    target_sources(vjvcplus PRIVATE
+    target_sources(VJVision PRIVATE
         src/viz/qt_viz.cpp
         src/viz/viz_controller.cpp
         src/ui/prefs.cpp
         src/ui/control_panel.cpp
     )
-    set_target_properties(vjvcplus PROPERTIES AUTOMOC ON AUTORCC ON)
+    set_target_properties(VJVision PROPERTIES AUTOMOC ON AUTORCC ON)
 endif()
 
-target_include_directories(vjvcplus PRIVATE src)
+target_include_directories(VJVision PRIVATE src)
 
 # ole32: CoCreateInstance / COM (WASAPI device enumerator)
 # shell32: CommandLineToArgvW (wide argv → UTF-8)
-target_link_libraries(vjvcplus PRIVATE pffft sqlite3 ole32 shell32)
+target_link_libraries(VJVision PRIVATE pffft sqlite3 ole32 shell32)
 
 if(VJVC_WITH_QT)
     find_package(Qt6 REQUIRED COMPONENTS Gui Quick Widgets)
-    target_link_libraries(vjvcplus PRIVATE Qt6::Gui Qt6::Quick Qt6::Widgets)
-    target_compile_definitions(vjvcplus PRIVATE VJVC_WITH_QT=1)
+    target_link_libraries(VJVision PRIVATE Qt6::Gui Qt6::Quick Qt6::Widgets)
+    target_compile_definitions(VJVision PRIVATE VJVC_WITH_QT=1)
 endif()
 
 if(MSVC)
-    target_compile_options(vjvcplus PRIVATE /W3 /utf-8 /EHsc)
-    target_compile_definitions(vjvcplus PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
+    target_compile_options(VJVision PRIVATE /W3 /utf-8 /EHsc)
+    target_compile_definitions(VJVision PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
     target_compile_options(pffft PRIVATE /W0)
     target_compile_options(sqlite3 PRIVATE /W0)
 endif()

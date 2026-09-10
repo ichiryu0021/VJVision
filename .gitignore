@@ -4,7 +4,7 @@
 
 # --- CMake build directories ---
 build/
-vjvcplus_build/
+VJVision_build/
 out/
 cmake-build-*/
 
@@ -13,7 +13,7 @@ cmake-build-*/
 **/qrc_*.cpp
 **/ui_*.h
 **/.qt/
-**/vjvcplus_autogen/
+**/VJVision_autogen/
 
 # --- Compiled binaries ---
 *.exe
