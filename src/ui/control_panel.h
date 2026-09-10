@@ -9,6 +9,8 @@
 #include "prefs.h"
 
 #include <QWidget>
+#include <QSlider>
+#include <QLabel>
 #include <atomic>
 #include <memory>
 #include <thread>
@@ -47,31 +49,45 @@ private:
     void loadPrefsToUi();
     void syncPrefs();                 // UI → prefs_ + persist + controller
     void refreshDevices();
-    void refreshScreens();
     void refreshSongCount();
-    void browseDb();
+    void browseDataDir();
     void browseMusicDir();
     void startIndex();
     void toggleViz();
     QString t(const char* key) const;
+    // Auto-discover VJVision.db inside dataDir
+    QString resolveDbPath() const;
 
     std::unique_ptr<VizController> controller_;
     Prefs prefs_;
 
-    // Audio / display
+    // Audio hardware
     QComboBox* deviceCombo_ = nullptr;
     QPushButton* refreshDevBtn_ = nullptr;
-    QComboBox* screenCombo_ = nullptr;
+    QProgressBar* levelBar_ = nullptr;   // input level → moved here from Run
 
-    // Library
-    QLineEdit* dbEdit_ = nullptr;
-    QPushButton* browseDbBtn_ = nullptr;
-    QLineEdit* dirEdit_ = nullptr;
-    QPushButton* browseDirBtn_ = nullptr;
+    // Database (data folder)
+    QLineEdit* dataDirEdit_ = nullptr;
+    QPushButton* browseDataBtn_ = nullptr;
     QPushButton* indexBtn_ = nullptr;
     QProgressBar* indexBar_ = nullptr;
     QLabel* indexLabel_ = nullptr;
     QLabel* songCountLabel_ = nullptr;
+    QLineEdit* dirEdit_ = nullptr;
+    QPushButton* browseDirBtn_ = nullptr;
+
+    // Visual / logo / background
+    QLineEdit* standbyEdit_ = nullptr;
+    QPushButton* browseStandbyBtn_ = nullptr;
+    QPushButton* clearStandbyBtn_ = nullptr;
+    QLineEdit* bgVideoEdit_ = nullptr;
+    QPushButton* browseBgBtn_ = nullptr;
+    QPushButton* clearBgBtn_ = nullptr;
+    QComboBox* bgModeCombo_ = nullptr;
+    QPushButton* bgColorBtn_ = nullptr;      // color picker for default-bg mode
+    QLabel* bgRowLabel_ = nullptr;           // dynamic label: "bgColor" / "bgVideo"
+    QSlider* overlaySlider_ = nullptr;       // replaces blur slider
+    QLabel* overlayLabel_ = nullptr;          // shows "0%" ~ "100%"
 
     // Thresholds
     QDoubleSpinBox* noiseSpin_ = nullptr;
@@ -79,9 +95,8 @@ private:
     QDoubleSpinBox* switchSpin_ = nullptr;
     QSpinBox* confirmSpin_ = nullptr;
 
-    // Run / meter / language / log
+    // Run / language / log
     QPushButton* vizBtn_ = nullptr;
-    QProgressBar* levelBar_ = nullptr;
     QComboBox* langCombo_ = nullptr;
     QPlainTextEdit* logView_ = nullptr;
     QTimer* levelTimer_ = nullptr;
@@ -91,6 +106,7 @@ private:
 
     QGroupBox* grpAudio_ = nullptr;
     QGroupBox* grpLib_ = nullptr;
+    QGroupBox* grpVisual_ = nullptr;
     QGroupBox* grpThr_ = nullptr;
     QGroupBox* grpRun_ = nullptr;
 };

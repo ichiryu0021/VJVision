@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Window
 import QtQuick.Effects
+import QtMultimedia       // MediaPlayer + VideoOutput (MP4/MOV bg)
+// AnimatedImage lives in QtQuick core since Qt 6.2 — no extra import needed
 
 Window {
     id: root
@@ -11,6 +13,13 @@ Window {
     height: 540
     minimumWidth: 320
     minimumHeight: 240
+
+    Component.onCompleted: {
+        console.log("[viz.qml] mx.bgColor =", mx.bgColor,
+                    "mx.bgOverlayDepth =", mx.bgOverlayDepth,
+                    "mx.bgVideoPath =", mx.bgVideoPath,
+                    "root.baseColor =", root.baseColor);
+    }
 
     // ---------- Mock fallback for qmlscene preview ----------
     // When loaded from qmlscene (no C++ context), `viz` is undefined.
@@ -53,6 +62,8 @@ Window {
         readonly property var bins: root._mock ? root._mockBins : viz.bins
         readonly property string standbyPath: root._mock ? "" : viz.standbyPath
         readonly property string bgVideoPath: root._mock ? "" : viz.bgVideoPath
+        readonly property real bgOverlayDepth: root._mock ? 0.5 : viz.bgOverlayDepth
+        readonly property string bgColor: root._mock ? "#000000" : viz.bgColor
         readonly property var trackColors: root._mock ? [Qt.rgba(0.87,0.89,0.84,1), Qt.rgba(0.18,0.16,0.15,1), Qt.rgba(0.83,0.79,0.69,1)] : viz.trackColors
         readonly property color trackColor: root._mock ? Qt.rgba(0.87,0.89,0.84,1) : viz.trackColor
         // Flat RGB from C++ standby/logo color sampling:
@@ -167,10 +178,18 @@ Window {
     property real spectrumBarHRatio: 0.77         // main bar / total spectrum height
     property real mirrorHeightRatio: 0.55         // mirror height as × main-bar height
 
-    // --- Background video ---
-    property real bgBlurAmount: 0.40               // 0 = sharp, 1 = max blur
-    property bool bgBlurEnabled: mx.bgVideoPath !== ""  // auto-enables when bg video present
-    property real bgVideoSaturation: 1.0           // 0 = grayscale, 1 = normal
+    // --- Background media (GIF/WEBP animated or MP4/MOV video) ---
+    // bgMediaType: 0 = none, 1 = GIF/WEBP/PNG/Image (AnimatedImage), 2 = MP4/MOV (MediaPlayer)
+    // QML picks the right component automatically — no Multimedia needed for GIF!
+    property real bgOverlayDepth: 0.5              // 0 = no dim, 1 = fully black
+    readonly property int bgMediaType: {
+        var p = mx.bgVideoPath.toLowerCase();
+        if (p === "") return 0;
+        if (p.endsWith(".gif") || p.endsWith(".webp") || p.endsWith(".png") || p.endsWith(".jpg") || p.endsWith(".jpeg")) return 1;
+        return 2;  // MP4/MOV/MKV → needs Multimedia
+    }
+    readonly property string bgImagePath: (bgMediaType === 1) ? mx.bgVideoPath : ""
+    readonly property string bgMediaPath: (bgMediaType === 2) ? mx.bgVideoPath : ""
 
     // --- Auto-return to standby after N seconds of silence ---
     property int silenceTimeoutSec: 15
@@ -308,6 +327,10 @@ Window {
         return mx.titleText.length > 0 ? h : 210;
     }
 
+    // Default bg (no custom media): user-chosen color from panel, or pure black fallback.
+    readonly property color baseColor: (mx.bgColor && mx.bgColor.length > 0)
+        ? mx.bgColor : "#000000"
+
     // Background tint sampled from cover (dominant color). Falls back to
     // trackHue if no art. Later bound to actual cover dominant color.
     property color bgTint: {
@@ -315,56 +338,31 @@ Window {
         return Qt.hsla(root.trackHue / 360, 0.45, 0.22, 1)
     }
 
-    // ---------- Layered background (direct Window children) ----------
-    // Order (back → front): solid base → ripple → dark vignette
-    // Removed bgRoot wrapper — nesting behind an Item can mask rendering.
+    // ---------- Layered background (ALL direct Window children — no Item wrappers!) ----------
+    // Qt Quick: EARLIER declaration = LOWER z = painted FIRST (back).
+    //           LATER declaration = HIGHER z = painted LAST (front).
+    // Order (back → front):
+    //   1. Solid base color "#0a0f1a" (deep blue fallback, bottom-most)
+    //   2. Ripple Canvas (semi-transparent animated color wash — OVERPAINTS bg slightly)
+    //   3. Custom background media (AnimatedImage or VideoOutput — on top of ripple IF present)
+    //   4. Dark vignette (gradient overlay — always top-most background effect)
+    //   5. Spectrum bars / track info / logo ... (content, not background)
 
-        // --- Video layer (optional, bottom) ---
-        // Requires Qt Multimedia module (not installed yet).
-        // When enabled, place bg_video.mp4 next to the exe and set
-        // bgVideoPath via control panel.
-        // TODO: uncomment + add Qt6::Multimedia dep when ready
-        /*
-        Item {
-            id: videoLayer
-            anchors.fill: parent
-            visible: mx.bgVideoPath !== ""
-            MultiEffect {
-                anchors.fill: parent
-                source: bgVideo
-                blurEnabled: root.bgBlurEnabled
-                blurMax: 128
-                blur: root.bgBlurAmount
-                saturation: root.bgVideoSaturation
-            }
-            MediaPlayer {
-                id: bgVideoPlayer
-                source: mx.bgVideoPath
-                loops: MediaPlayer.Infinite
-                volume: 0
-                onErrorOccurred: console.log("bg video error:", errorString)
-            }
-            VideoOutput {
-                id: bgVideo
-                anchors.fill: parent
-                source: bgVideoPlayer
-                fillMode: VideoOutput.PreserveAspectCrop
-                Component.onCompleted: bgVideoPlayer.play()
-            }
-        }
-        */
-
-        // --- Ripple layer (always present, on top of video) ---
+        // [1] Solid base — bottom-most. Always visible, even with custom bg (custom bg covers it).
+        // Uses complement of track hue, darkened to near-black so foreground is legible.
         Rectangle {
             anchors.fill: parent
-            color: "#0a0f1a"
+            color: root.baseColor
         }
+
+        // [2] Ripple Canvas — semi-transparent color wash. ON TOP of base.
+        //     IF custom bg present, ripple blends on top of video (may dim it slightly).
         Canvas {
             id: ripple
             anchors.fill: parent
             contextType: "2d"
             renderStrategy: Canvas.Immediate
-            opacity: 1.0
+            opacity: mx.bgVideoPath === "" ? 1.0 : 0.6
 
             // Persistent lerp state — survives across onPaint calls.
             // 9-element flat RGB: [r0,g0,b0, r1,g1,b1, r2,g2,b2]
@@ -468,15 +466,60 @@ Window {
                     ctx.fill()
                 }
             }
+        }   // ← end of ripple Canvas
+
+        // [3] Custom background — ON TOP of ripple, BEHIND dark-dim overlay.
+        // ALL components here are direct Window children (no Item wrapper).
+        //
+        // AnimatedImage path (GIF/WEBP/PNG/JPG):
+        //   - Plain AnimatedImage when NO blur needed
+        //   - Wrapped in MultiEffect when blur is enabled
+        //   VideoOutput CANNOT be source of MultiEffect (native GL surface),
+        //   so MP4 path is always plain (blur limitation for MP4 only).
+        AnimatedImage {
+            id: bgAnimated
+            anchors.fill: parent
+            // ALWAYS visible — MultiEffect needs it as source even when blur is ON.
+            // When blur ON, MultiEffect renders on TOP (higher z) so user sees the blurred version.
+            visible: mx.bgVideoPath !== "" && root.bgMediaType === 1
+            source: root.bgImagePath
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: false
+        }
+        MediaPlayer {
+            id: bgVideoPlayer
+            source: root.bgMediaPath
+            loops: MediaPlayer.Infinite
+            audioOutput: AudioOutput { volume: 0 }
+            videoOutput: bgVideoOut
+            onErrorOccurred: console.log("[viz] bg video error:", errorString)
+            // play() when source changes (covers both initial and post-push timing)
+            onSourceChanged: { if (source !== "") { console.log("[viz] bg video source set:", source); play() } }
+            // Also play when status becomes LoadedMedia (defensive — some formats need this)
+            onPlaybackStateChanged: {
+                if (playbackState === MediaPlayer.LoadedMedia || playbackState === MediaPlayer.Stopped) {
+                    if (source !== "") play()
+                }
+            }
+        }
+        VideoOutput {
+            id: bgVideoOut
+            anchors.fill: parent
+            visible: mx.bgVideoPath !== "" && root.bgMediaType === 2
+            fillMode: VideoOutput.PreserveAspectCrop
         }
 
-        // --- Dark vignette (kept very subtle so ripple shows through) ---
+        // [4] Dark overlay — ONLY shown when Custom bg media is present.
+        // Depth driven by mx.bgOverlayDepth (0..1). 0 = no dim, 1 = fully black.
+        // Default ripple background should NOT be dimmed — it is its own visual.
         Rectangle {
             anchors.fill: parent
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: "#00000000" }
-                GradientStop { position: 0.5; color: "#00000000" }
-                GradientStop { position: 1.0; color: "#00000000" }
+            visible: mx.bgVideoPath !== ""
+            color: {
+                var d = (mx.bgOverlayDepth !== undefined) ? mx.bgOverlayDepth : 0.5;
+                d = Math.max(0, Math.min(1, d));
+                return Qt.rgba(0, 0, 0, d);
             }
         }
 
@@ -688,7 +731,10 @@ Window {
         y: root.height * root.standbyYAnim - height / 2
         z: 100
 
-        Image {
+        // Standby logo — works for all formats:
+        //   GIF/WEBP  → AnimatedImage auto-plays + preserves alpha channel ✅
+        //   PNG/JPG   → AnimatedImage shows as static image (one frame) ✅
+        AnimatedImage {
             id: standbyImg
             anchors.fill: parent
             source: mx.standbyPath

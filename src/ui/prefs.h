@@ -8,15 +8,22 @@
 namespace vj {
 
 struct Prefs {
-    QString dbPath;            // SQLite fingerprint DB
+    QString dataDir;           // data folder (holds VJVision.db + VJVision_prefs.json + covers + standby)
     QString musicDir;          // last indexed music directory
     int deviceIdx = -1;        // capture endpoint (-1 = default loopback)
-    int screenIdx = -1;        // fullscreen screen (-1 = primary)
+    QString standbyPath;       // optional standby logo file
+    QString bgVideoPath;       // custom background media (GIF/WEBP/MP4/MOV) — used only when bgMode==1
+    int bgMode = 0;            // 0 = default (built-in), 1 = custom
+    float bgOverlayDepth = 0.5f; // 0 = no dim, 1 = fully black — dark overlay for legibility
+    QString bgColor = "#000000"; // default background color (hex "#RRGGBB") — used when bgMode==0
     QString language = "zh";   // "zh" | "en"
     MatchParams match;         // live recognition thresholds
 
-    // <exe dir>/VJVision_prefs.json
-    static QString defaultPath();
+    // Convenience: resolve <dataDir>/VJVision.db (empty if dataDir empty)
+    QString dbPath() const;
+    // Resolve <dataDir>/VJVision_prefs.json
+    static QString defaultDataDir();  // <exe_dir>/data
+    static QString defaultPrefsPath(); // <exe_dir>/VJVision_prefs.json (legacy fallback)
 
     static Prefs load();       // missing/corrupt file → built-in defaults
     void save() const;

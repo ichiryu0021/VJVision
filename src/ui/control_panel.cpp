@@ -6,20 +6,20 @@
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QColorDialog>
 #include <QComboBox>
 #include <QDir>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
-#include <QScreen>
 #include <QSpinBox>
 #include <QThread>
 #include <QTimer>
@@ -28,40 +28,49 @@
 namespace vj {
 
 namespace {
-// Minimal bilingual dictionary (zh / en). Visual style strings stay
-// language-neutral (the "PEAK" indicator is always English by spec).
 const char* tr2(const QString& lang, const char* key) {
     static const struct { const char* k; const char* zh; const char* en; } rows[] = {
         {"appTitle",       "VJVision 控制面板",            "VJVision Control Panel"},
-        {"grpAudio",       "音频与显示",                   "Audio & Display"},
+        {"grpAudio",       "音频硬件",                     "Audio Hardware"},
         {"device",         "音频设备",                     "Audio device"},
         {"refresh",        "刷新",                         "Refresh"},
-        {"screen",         "全屏显示器",                   "Fullscreen monitor"},
-        {"grpLib",         "曲库",                         "Music Library"},
-        {"dbPath",         "指纹数据库",                   "Fingerprint DB"},
-        {"browse",         "浏览…",                        "Browse…"},
-        {"musicDir",       "音乐目录",                     "Music directory"},
-        {"index",          "索引目录",                     "Index directory"},
-        {"indexing",       "索引中…",                      "Indexing…"},
-        {"indexRun",       "执行索引",                     "Run indexing"},
-        {"indexStatus",    "索引状态",                     "Index status"},
-        {"songCount",      "已索引歌曲",                   "Indexed songs"},
         {"level",          "输入电平",                     "Input level"},
+        {"grpLib",         "数据库",                       "Database"},
+        {"dataDir",        "数据文件夹",                   "Data folder"},
+        {"musicDir",       "音乐目录",                     "Music directory"},
+        {"browse",         "浏览…",                        "Browse…"},
+        {"index",          "执行分析",                     "Run analysis"},
+        {"indexing",       "分析中…",                      "Analyzing…"},
+        {"indexRun",       "分析音乐",                     "Analyze music"},
+        {"indexStatus",    "分析状态",                     "Analysis status"},
+        {"songCount",      "已分析歌曲",                   "Analyzed songs"},
+        {"grpVisual",      "视觉效果",                     "Visual effects"},
+        {"standby",        "待机 Logo",                    "Standby logo"},
+        {"bgVideo",        "背景媒体",                     "Background media"},
+        {"clear",          "清除",                         "Clear"},
+        {"bgColor",        "底色",                         "Bg color"},
+        {"bgOverlay",      "黑色遮罩",                     "Dark overlay"},
+        {"bgMode",         "背景来源",                     "Bg source"},
+        {"bgDefault",      "默认（内置）",                  "Default (built-in)"},
+        {"bgCustom",       "自定义",                       "Custom"},
         {"grpThr",         "识别阈值（即时生效）",         "Recognition thresholds (live)"},
         {"noise",          "噪声下限",                     "Noise floor"},
         {"first",          "首曲确认",                     "First-track accept"},
         {"switch",         "切歌确认",                     "Switch accept"},
         {"confirm",        "确认次数",                     "Confirm frames"},
+        {"resetDefault",   "恢复默认",                     "Reset defaults"},
         {"grpRun",         "运行",                         "Run"},
-        {"startViz",       "启动可视化（全屏）",           "Start visualizer (fullscreen)"},
+        {"startViz",       "启动可视化",                   "Start visualizer"},
         {"stopViz",        "停止可视化",                   "Stop visualizer"},
+        {"resetViz",       "重置并启动",                   "Reset & start"},
         {"language",       "语言",                         "Language"},
         {"log",            "日志",                         "Log"},
-        {"needDb",         "请先选择数据库路径",           "Pick a database path first"},
         {"needDir",        "请先选择音乐目录",             "Pick a music directory first"},
-        {"indexDone",      "索引完成",                     "Index complete"},
-        {"indexFailed",    "索引失败：无法打开数据库",     "Index failed: cannot open DB"},
-        {"closing",        "正在关闭，等待索引线程结束…",  "Closing, waiting for indexer…"},
+        {"indexDone",      "分析完成",                     "Analysis complete"},
+        {"indexFailed",    "分析失败：无法打开数据库",     "Analysis failed: cannot open DB"},
+        {"closing",        "正在关闭，等待分析线程结束…",  "Closing, waiting for analyzer…"},
+        {"noDb",           "数据文件夹中无 VJVision.db — 运行可视化不会有曲目匹配",
+                           "No VJVision.db in data folder — viz runs without track matching"},
     };
     for (const auto& r : rows) {
         if (qstrcmp(r.k, key) == 0)
@@ -73,14 +82,13 @@ const char* tr2(const QString& lang, const char* key) {
 
 ControlPanel::ControlPanel(QWidget* parent) : QWidget(parent) {
     prefs_ = Prefs::load();
-    if (prefs_.dbPath.isEmpty())
-        prefs_.dbPath = QDir(QCoreApplication::applicationDirPath())
-                            .filePath("VJVision.db");
+    if (prefs_.dataDir.isEmpty())
+        prefs_.dataDir = Prefs::defaultDataDir();
+
     buildUi();
     loadPrefsToUi();
     retranslate();
     refreshDevices();
-    refreshScreens();
     refreshSongCount();
 
     controller_ = std::make_unique<VizController>();
@@ -96,7 +104,7 @@ ControlPanel::ControlPanel(QWidget* parent) : QWidget(parent) {
     });
     levelTimer_->start(50);
 
-    appendLog(QStringLiteral("VJVision control panel ready."));
+    appendLog(QStringLiteral("VJVision control panel ready. Data folder: %1").arg(prefs_.dataDir));
 }
 
 ControlPanel::~ControlPanel() = default;
@@ -105,19 +113,25 @@ QString ControlPanel::t(const char* key) const {
     return QString::fromUtf8(tr2(prefs_.language, key));
 }
 
+QString ControlPanel::resolveDbPath() const {
+    if (prefs_.dataDir.isEmpty()) return QString();
+    QDir dir(prefs_.dataDir);
+    QString db = dir.filePath(QStringLiteral("VJVision.db"));
+    if (QFileInfo::exists(db)) return db;
+    return QString();
+}
+
 void ControlPanel::buildUi() {
-    setMinimumWidth(720);
+    setMinimumWidth(760);
     auto* root = new QVBoxLayout(this);
 
-    // Labels carry their dictionary key as objectName; retranslate()
-    // walks findChildren<QLabel*> and updates them in one loop.
     auto lbl = [](const char* key) {
         auto* l = new QLabel;
         l->setObjectName(QString::fromUtf8(key));
         return l;
     };
 
-    // --- Audio & display -------------------------------------------------
+    // --- Audio hardware -------------------------------------------------
     grpAudio_ = new QGroupBox;
     auto* audioForm = new QFormLayout(grpAudio_);
     auto* devRow = new QHBoxLayout();
@@ -130,22 +144,23 @@ void ControlPanel::buildUi() {
     devRow->addWidget(deviceCombo_, 1);
     devRow->addWidget(refreshDevBtn_);
     audioForm->addRow(lbl("device"), devRow);
-    screenCombo_ = new QComboBox;
-    connect(screenCombo_, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, [this] { syncPrefs(); });
-    audioForm->addRow(lbl("screen"), screenCombo_);
+    levelBar_ = new QProgressBar;
+    levelBar_->setRange(0, 100);
+    levelBar_->setValue(0);
+    levelBar_->setFormat(QStringLiteral("PEAK %p%"));
+    audioForm->addRow(lbl("level"), levelBar_);
     root->addWidget(grpAudio_);
 
-    // --- Library ---------------------------------------------------------
+    // --- Database -------------------------------------------------------
     grpLib_ = new QGroupBox;
     auto* libForm = new QFormLayout(grpLib_);
-    auto* dbRow = new QHBoxLayout();
-    dbEdit_ = new QLineEdit;
-    browseDbBtn_ = new QPushButton;
-    connect(browseDbBtn_, &QPushButton::clicked, this, &ControlPanel::browseDb);
-    dbRow->addWidget(dbEdit_, 1);
-    dbRow->addWidget(browseDbBtn_);
-    libForm->addRow(lbl("dbPath"), dbRow);
+    auto* dataRow = new QHBoxLayout();
+    dataDirEdit_ = new QLineEdit;
+    browseDataBtn_ = new QPushButton;
+    connect(browseDataBtn_, &QPushButton::clicked, this, &ControlPanel::browseDataDir);
+    dataRow->addWidget(dataDirEdit_, 1);
+    dataRow->addWidget(browseDataBtn_);
+    libForm->addRow(lbl("dataDir"), dataRow);
     auto* dirRow = new QHBoxLayout();
     dirEdit_ = new QLineEdit;
     browseDirBtn_ = new QPushButton;
@@ -164,10 +179,141 @@ void ControlPanel::buildUi() {
     libForm->addRow(lbl("indexRun"), idxRow);
     indexLabel_ = new QLabel;
     indexLabel_->setObjectName("indexStatusValue");
-    songCountLabel_ = new QLabel("0");
+    songCountLabel_ = new QLabel(QStringLiteral("—"));
     libForm->addRow(lbl("indexStatus"), indexLabel_);
     libForm->addRow(lbl("songCount"), songCountLabel_);
     root->addWidget(grpLib_);
+
+    // --- Visual effects -------------------------------------------------
+    grpVisual_ = new QGroupBox;
+    auto* visForm = new QFormLayout(grpVisual_);
+    auto* standbyRow = new QHBoxLayout();
+    standbyEdit_ = new QLineEdit;
+    browseStandbyBtn_ = new QPushButton;
+    clearStandbyBtn_ = new QPushButton;
+    connect(browseStandbyBtn_, &QPushButton::clicked, this, [this] {
+        QString f = QFileDialog::getOpenFileName(this, tr2(prefs_.language, "standby"),
+            standbyEdit_->text(), QStringLiteral("Images (*.png *.jpg *.jpeg *.gif *.webp)"));
+        if (!f.isEmpty()) {
+            standbyEdit_->setText(QDir::toNativeSeparators(f));
+            syncPrefs();
+        }
+    });
+    connect(clearStandbyBtn_, &QPushButton::clicked, this, [this] {
+        standbyEdit_->clear();
+        syncPrefs();
+    });
+    standbyRow->addWidget(standbyEdit_, 1);
+    standbyRow->addWidget(browseStandbyBtn_);
+    standbyRow->addWidget(clearStandbyBtn_);
+    visForm->addRow(lbl("standby"), standbyRow);
+    // Background source mode: Default (built-in) vs Custom
+    auto* bgModeCombo = new QComboBox;
+    bgModeCombo->addItem(t("bgDefault"), 0);
+    bgModeCombo->addItem(t("bgCustom"), 1);
+    bgModeCombo_ = bgModeCombo;
+    visForm->addRow(lbl("bgMode"), bgModeCombo);
+
+    // Row label — changes: "bgColor" (Default) or "bgVideo" (Custom)
+    bgRowLabel_ = new QLabel;
+
+    // Row that morphs between: Default → color picker button, Custom → file browse
+    auto* bgRow = new QHBoxLayout();
+    bgColorBtn_ = new QPushButton;
+    bgColorBtn_->setFixedWidth(80);
+    bgVideoEdit_ = new QLineEdit;
+    browseBgBtn_ = new QPushButton;
+    clearBgBtn_ = new QPushButton;
+    auto refreshColorBtn = [this]() {
+        QColor c(prefs_.bgColor);
+        QColor hover = c.lighter(115);   // slightly lighter on hover, no white flash
+        QString tc = (c.lightness() > 128) ? "#000" : "#fff";
+        bgColorBtn_->setText(prefs_.bgColor);
+        bgColorBtn_->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: %1; color: %2; border: 1px solid rgba(128,128,128,80); border-radius: 3px; padding: 2px 6px; }"
+            "QPushButton:hover { background-color: %3; border: 1px solid rgba(180,180,180,140); }"
+            "QPushButton:pressed { background-color: %1; }")
+            .arg(prefs_.bgColor, tc, hover.name()));
+    };
+    refreshColorBtn();
+    connect(bgColorBtn_, &QPushButton::clicked, this, [this, refreshColorBtn] {
+        QColor current(prefs_.bgColor);
+        QColor c = QColorDialog::getColor(current, this, tr2(prefs_.language, "bgColor"));
+        if (c.isValid()) {
+            prefs_.bgColor = c.name();
+            refreshColorBtn();
+            syncPrefs();
+        }
+    });
+    connect(browseBgBtn_, &QPushButton::clicked, this, [this] {
+        QString f = QFileDialog::getOpenFileName(this, tr2(prefs_.language, "bgVideo"),
+            bgVideoEdit_->text(),
+            QStringLiteral("Background (*.gif *.webp *.png *.jpg *.jpeg *.mp4 *.mov *.mkv *.avi)"));
+        if (!f.isEmpty()) {
+            bgVideoEdit_->setText(QDir::toNativeSeparators(f));
+            syncPrefs();
+        }
+    });
+    connect(clearBgBtn_, &QPushButton::clicked, this, [this] {
+        bgVideoEdit_->clear();
+        syncPrefs();
+    });
+    // Dynamic row (label + contents)
+    auto* bgRowWidget = new QWidget;
+    bgRowWidget->setLayout(bgRow);
+    const QString labelBgVideo = lbl("bgVideo")->text();
+    const QString labelBgColor = lbl("bgColor")->text();
+    auto updateBgRowForMode = [bgRow, this, labelBgVideo, labelBgColor](int mode) {
+        bool custom = (mode == 1);
+        // Clear layout
+        QLayoutItem* item;
+        while ((item = bgRow->takeAt(0)) != nullptr) {
+            if (item->widget()) item->widget()->setParent(nullptr);
+            delete item;
+        }
+        if (custom) {
+            bgRowLabel_->setText(labelBgVideo);
+            bgRow->addWidget(bgVideoEdit_, 1);
+            bgRow->addWidget(browseBgBtn_);
+            bgRow->addWidget(clearBgBtn_);
+        } else {
+            bgRowLabel_->setText(labelBgColor);
+            bgRow->addWidget(bgColorBtn_);
+            bgRow->addStretch(1);
+        }
+    };
+    visForm->addRow(bgRowLabel_, bgRowWidget);
+
+    // Overlay depth slider (0 = no dim, 1 = fully black) — ALWAYS enabled
+    auto* overlayRow = new QHBoxLayout();
+    overlaySlider_ = new QSlider(Qt::Horizontal);
+    overlaySlider_->setRange(0, 100);
+    overlaySlider_->setSingleStep(1);
+    overlayLabel_ = new QLabel;
+    overlayLabel_->setFixedWidth(40);
+    overlayLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    connect(overlaySlider_, &QSlider::valueChanged, this, [this](int v) {
+        float f = v / 100.0f;
+        overlayLabel_->setText(QStringLiteral("%1%").arg(v));
+        prefs_.bgOverlayDepth = f;
+        syncPrefs();
+    });
+    overlayRow->addWidget(overlaySlider_, 1);
+    overlayRow->addWidget(overlayLabel_);
+    visForm->addRow(lbl("bgOverlay"), overlayRow);
+
+    connect(bgModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this,
+            [this, updateBgRowForMode](int m) {
+                updateBgRowForMode(m);
+                bool custom = (m == 1);
+                overlaySlider_->setEnabled(custom);
+                overlayLabel_->setEnabled(custom);
+            });
+    // Initial state — Default mode disables overlay slider
+    overlaySlider_->setEnabled(false);
+    overlayLabel_->setEnabled(false);
+    updateBgRowForMode(bgModeCombo->currentIndex());
+    root->addWidget(grpVisual_);
 
     // --- Thresholds ------------------------------------------------------
     grpThr_ = new QGroupBox;
@@ -190,6 +336,20 @@ void ControlPanel::buildUi() {
     thrForm->addRow(lbl("first"), firstSpin_);
     thrForm->addRow(lbl("switch"), switchSpin_);
     thrForm->addRow(lbl("confirm"), confirmSpin_);
+    // Reset-to-default button
+    auto* resetRow = new QHBoxLayout;
+    resetRow->addStretch();
+    auto* resetBtn = new QPushButton;
+    resetBtn->setText(t("resetDefault"));
+    connect(resetBtn, &QPushButton::clicked, this, [this] {
+        noiseSpin_->setValue(0.13);
+        firstSpin_->setValue(0.25);
+        switchSpin_->setValue(0.30);
+        confirmSpin_->setValue(2);
+        syncPrefs();
+    });
+    resetRow->addWidget(resetBtn);
+    thrForm->addRow(resetRow);
     for (auto* w : {noiseSpin_, firstSpin_, switchSpin_}) {
         connect(w, qOverload<double>(&QDoubleSpinBox::valueChanged),
                 this, [this] { syncPrefs(); });
@@ -205,8 +365,8 @@ void ControlPanel::buildUi() {
     vizBtn_ = new QPushButton;
     connect(vizBtn_, &QPushButton::clicked, this, &ControlPanel::toggleViz);
     langCombo_ = new QComboBox;
-    langCombo_->addItem("中文", "zh");
-    langCombo_->addItem("English", "en");
+    langCombo_->addItem(QStringLiteral("中文"), QStringLiteral("zh"));
+    langCombo_->addItem(QStringLiteral("English"), QStringLiteral("en"));
     connect(langCombo_, qOverload<int>(&QComboBox::currentIndexChanged),
             this, [this] {
         prefs_.language = langCombo_->currentData().toString();
@@ -217,11 +377,6 @@ void ControlPanel::buildUi() {
     btnRow->addWidget(lbl("language"));
     btnRow->addWidget(langCombo_);
     runForm->addRow(QString(), btnRow);
-    levelBar_ = new QProgressBar;
-    levelBar_->setRange(0, 100);
-    levelBar_->setValue(0);
-    levelBar_->setFormat("PEAK %p%");
-    runForm->addRow(lbl("level"), levelBar_);
     root->addWidget(grpRun_);
 
     // --- Log -------------------------------------------------------------
@@ -236,17 +391,23 @@ void ControlPanel::retranslate() {
     setWindowTitle(t("appTitle"));
     grpAudio_->setTitle(t("grpAudio"));
     grpLib_->setTitle(t("grpLib"));
+    grpVisual_->setTitle(t("grpVisual"));
     grpThr_->setTitle(t("grpThr"));
     grpRun_->setTitle(t("grpRun"));
     refreshDevBtn_->setText(t("refresh"));
-    browseDbBtn_->setText(t("browse"));
+    browseDataBtn_->setText(t("browse"));
     browseDirBtn_->setText(t("browse"));
+    browseStandbyBtn_->setText(t("browse"));
+    browseBgBtn_->setText(t("browse"));
+    clearStandbyBtn_->setText(t("clear"));
+    clearBgBtn_->setText(t("clear"));
     indexBtn_->setText(indexing_.load() ? t("indexing") : t("index"));
-    vizBtn_->setText(controller_ && controller_->isRunning()
-                         ? t("stopViz") : t("startViz"));
+    if (controller_ && controller_->isRunning()) {
+        vizBtn_->setText(t("stopViz"));
+    } else {
+        vizBtn_->setText(t("startViz"));
+    }
 
-    // Form labels: objectName == dictionary key. The fallback in tr2()
-    // returns the key itself, so a missing translation is detectable.
     for (QLabel* l : findChildren<QLabel*>()) {
         const QByteArray key = l->objectName().toUtf8();
         if (key.isEmpty() || key == "indexStatusValue") continue;
@@ -257,31 +418,48 @@ void ControlPanel::retranslate() {
 }
 
 void ControlPanel::loadPrefsToUi() {
-    dbEdit_->setText(prefs_.dbPath);
+    dataDirEdit_->setText(prefs_.dataDir);
     dirEdit_->setText(prefs_.musicDir);
+    standbyEdit_->setText(prefs_.standbyPath);
+    bgVideoEdit_->setText(prefs_.bgVideoPath);
+    bgModeCombo_->setCurrentIndex(prefs_.bgMode);
+    overlaySlider_->setValue(int(qBound(0.f, prefs_.bgOverlayDepth, 1.f) * 100.f));
+    overlayLabel_->setText(QStringLiteral("%1%").arg(overlaySlider_->value()));
     noiseSpin_->setValue(prefs_.match.noiseFloor);
     firstSpin_->setValue(prefs_.match.firstTrackAccept);
     switchSpin_->setValue(prefs_.match.switchAccept);
     confirmSpin_->setValue(prefs_.match.confirmFrames);
     const int li = langCombo_->findData(prefs_.language);
     if (li >= 0) langCombo_->setCurrentIndex(li);
-    // device / screen combos are populated after construction; their
-    // selection happens inside refreshDevices()/refreshScreens().
 }
 
 void ControlPanel::syncPrefs() {
-    prefs_.dbPath = dbEdit_->text().trimmed();
+    prefs_.dataDir = dataDirEdit_->text().trimmed();
     prefs_.musicDir = dirEdit_->text().trimmed();
+    prefs_.standbyPath = standbyEdit_->text().trimmed();
+    prefs_.bgMode = bgModeCombo_->currentIndex();   // 0=default, 1=custom
+    prefs_.bgVideoPath = bgVideoEdit_->text().trimmed();
     prefs_.deviceIdx = deviceCombo_->currentIndex() > 0
                            ? deviceCombo_->currentData().toInt() : -1;
-    prefs_.screenIdx = screenCombo_->currentIndex() > 0
-                           ? screenCombo_->currentData().toInt() : -1;
     prefs_.match.noiseFloor = (float)noiseSpin_->value();
     prefs_.match.firstTrackAccept = (float)firstSpin_->value();
     prefs_.match.switchAccept = (float)switchSpin_->value();
     prefs_.match.confirmFrames = confirmSpin_->value();
     prefs_.save();
-    if (controller_) controller_->setMatchParams(prefs_.match);
+    if (controller_) {
+        controller_->setMatchParams(prefs_.match);
+        // Standby logo: user path takes priority over auto-discovered
+        if (!prefs_.standbyPath.isEmpty()) {
+            QString url = QStringLiteral("file:///") + QDir::toNativeSeparators(prefs_.standbyPath).replace('\\', '/');
+            controller_->setStandbyPath(url);
+        }
+        // Bg video: only push custom path when user explicitly chose Custom mode
+        controller_->setBgVideoPath((prefs_.bgMode == 1)
+            ? QStringLiteral("file:///") + QDir::toNativeSeparators(prefs_.bgVideoPath).replace('\\', '/')
+            : QString());
+        controller_->setBgOverlayDepth(prefs_.bgOverlayDepth);
+        controller_->setBgColor(prefs_.bgColor);
+    }
 }
 
 void ControlPanel::refreshDevices() {
@@ -303,41 +481,26 @@ void ControlPanel::refreshDevices() {
     deviceCombo_->blockSignals(false);
 }
 
-void ControlPanel::refreshScreens() {
-    const int saved = prefs_.screenIdx;
-    screenCombo_->blockSignals(true);
-    screenCombo_->clear();
-    screenCombo_->addItem(QStringLiteral("Primary screen"), -1);
-    int selectIdx = 0;
-    const auto screens = QGuiApplication::screens();
-    for (int i = 0; i < screens.size(); ++i) {
-        const QRect g = screens[i]->geometry();
-        screenCombo_->addItem(QStringLiteral("[%1] %2  %3x%4")
-                                  .arg(i)
-                                  .arg(screens[i]->name())
-                                  .arg(g.width()).arg(g.height()),
-                              i);
-        if (i == saved) selectIdx = i + 1;
-    }
-    screenCombo_->setCurrentIndex(selectIdx);
-    screenCombo_->blockSignals(false);
-}
-
 void ControlPanel::refreshSongCount() {
-    FpDb db;
-    if (db.open(prefs_.dbPath.toStdString())) {
-        songCountLabel_->setText(QString::number(db.listSongs().size()));
+    QString db = resolveDbPath();
+    if (db.isEmpty()) {
+        songCountLabel_->setText(QStringLiteral("—"));
+        return;
+    }
+    FpDb fpdb;
+    if (fpdb.open(db.toStdString())) {
+        songCountLabel_->setText(QString::number(fpdb.listSongs().size()));
     } else {
-        songCountLabel_->setText("—");
+        songCountLabel_->setText(QStringLiteral("—"));
     }
 }
 
-void ControlPanel::browseDb() {
-    const QString f = QFileDialog::getSaveFileName(
-        this, t("dbPath"), dbEdit_->text(),
-        QStringLiteral("SQLite DB (*.db)"));
-    if (!f.isEmpty()) {
-        dbEdit_->setText(QDir::toNativeSeparators(f));
+void ControlPanel::browseDataDir() {
+    const QString d = QFileDialog::getExistingDirectory(
+        this, t("dataDir"), dataDirEdit_->text().isEmpty()
+                              ? Prefs::defaultDataDir() : dataDirEdit_->text());
+    if (!d.isEmpty()) {
+        dataDirEdit_->setText(QDir::toNativeSeparators(d));
         syncPrefs();
         refreshSongCount();
     }
@@ -354,15 +517,11 @@ void ControlPanel::browseMusicDir() {
 
 void ControlPanel::startIndex() {
     if (indexing_.load()) return;
-    const QString dir = dirEdit_->text().trimmed();
-    const QString dbp = dbEdit_->text().trimmed();
-    if (dbp.isEmpty()) { appendLog(t("needDb")); return; }
-    if (dir.isEmpty()) { appendLog(t("needDir")); return; }
     syncPrefs();
+    const QString dbp = resolveDbPath();
+    const QString dir = dirEdit_->text().trimmed();
+    if (dir.isEmpty()) { appendLog(t("needDir")); return; }
 
-    // Reap the previous worker before reassigning. A finished thread is
-    // still joinable until joined, and move-assigning a joinable
-    // std::thread calls std::terminate (crash on the second index run).
     if (indexThread_.joinable()) indexThread_.join();
 
     indexing_.store(true);
@@ -372,14 +531,18 @@ void ControlPanel::startIndex() {
     indexBar_->setValue(0);
     indexLabel_->setText(QString());
 
-    // Cross-thread transport: emit queued signals at `this`.
     auto* self = this;
-    indexThread_ = std::thread([self, dir, dbp] {
-        // An uncaught exception in a worker thread = std::terminate.
-        // Report failures back to the UI instead of killing the app.
+    // If no pre-existing DB, use <dataDir>/VJVision.db — Indexer will create it.
+    QString finalDb = dbp;
+    if (finalDb.isEmpty() && !prefs_.dataDir.isEmpty()) {
+        QDir d(prefs_.dataDir);
+        finalDb = d.filePath(QStringLiteral("VJVision.db"));
+    }
+
+    indexThread_ = std::thread([self, dir, finalDb] {
         try {
             FpDb db;
-            if (!db.open(dbp.toStdString())) {
+            if (!db.open(finalDb.toStdString())) {
                 QMetaObject::invokeMethod(self, [self] {
                     self->appendLog(self->t("indexFailed"));
                     self->onIndexFinished(0, 0, 0);
@@ -435,28 +598,47 @@ void ControlPanel::onIndexFinished(int ok, int skipped, int failed) {
 void ControlPanel::toggleViz() {
     if (controller_->isRunning()) {
         vizBtn_->setEnabled(false);
-        controller_->stop();   // joins worker (GUI thread, ~30 ms worst case)
+        controller_->stop();
         return;
     }
-    syncPrefs();
-    const bool ok = controller_->start(
-        prefs_.dbPath.toStdString(), prefs_.deviceIdx, prefs_.screenIdx);
+    // Clicking after stop() now starts fresh — controller_ is fully reset.
+    syncPrefs();   // saves prefs to disk (qtSink_ doesn't exist yet → push is skipped)
+    QString db = resolveDbPath();
+    if (db.isEmpty()) {
+        appendLog(t("noDb"));
+    }
+    const std::string dbStr = db.toStdString();
+    const bool ok = controller_->start(dbStr, prefs_.deviceIdx);
     if (ok) {
         vizBtn_->setText(t("stopViz"));
         deviceCombo_->setEnabled(false);
-        screenCombo_->setEnabled(false);
-        dbEdit_->setEnabled(false);
-        browseDbBtn_->setEnabled(false);
+        // NOW qtSink_ exists — push all custom paths + effects to override auto-discovered defaults
+        if (!prefs_.standbyPath.isEmpty()) {
+            QString url = QStringLiteral("file:///") + QDir::toNativeSeparators(prefs_.standbyPath).replace('\\', '/');
+            appendLog(QStringLiteral("[push] standby = %1").arg(url));
+            controller_->setStandbyPath(url);
+        } else {
+            appendLog(QStringLiteral("[push] standby = (none)"));
+        }
+        QString bgUrl;
+        if (prefs_.bgMode == 1 && !prefs_.bgVideoPath.isEmpty()) {
+            bgUrl = QStringLiteral("file:///") + QDir::toNativeSeparators(prefs_.bgVideoPath).replace('\\', '/');
+            appendLog(QStringLiteral("[push] bgVideo(custom) = %1").arg(bgUrl));
+        } else {
+            appendLog(QStringLiteral("[push] bgVideo = (default/off)  bgMode=%1  path=%2")
+                .arg(prefs_.bgMode).arg(prefs_.bgVideoPath));
+        }
+        controller_->setBgVideoPath(bgUrl);
+        controller_->setBgOverlayDepth(prefs_.bgOverlayDepth);
+        controller_->setBgColor(prefs_.bgColor);
+        appendLog(QStringLiteral("[push] bgOverlayDepth = %1  bgColor = %2").arg(prefs_.bgOverlayDepth, 0, 'f', 2).arg(prefs_.bgColor));
     }
 }
 
 void ControlPanel::onSessionStopped() {
     vizBtn_->setEnabled(true);
-    vizBtn_->setText(t("startViz"));
+    retranslate();   // picks correct startViz text
     deviceCombo_->setEnabled(true);
-    screenCombo_->setEnabled(true);
-    dbEdit_->setEnabled(true);
-    browseDbBtn_->setEnabled(true);
     levelBar_->setValue(0);
 }
 

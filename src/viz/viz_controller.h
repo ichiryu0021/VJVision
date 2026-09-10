@@ -29,11 +29,11 @@ public:
     explicit VizController(QObject* parent = nullptr);
     ~VizController() override;
 
-    // Creates the QML fullscreen window on screenIndex (-1 = primary)
+    // Creates the QML windowed-on-screen-and-user-can-drag-then-F-fullscreen
     // and starts capture/recognition. Must be called on the GUI thread.
-    // Returns false (and logs the reason) if the DB is missing/empty,
-    // the QML window fails to load, or a session is already running.
-    bool start(const std::string& dbPath, int deviceIndex, int screenIndex);
+    // dbPath may be empty — viz still runs (shows only standby), no track matching.
+    // Returns false only on QML load failure or if a session is already running.
+    bool start(const std::string& dbPath, int deviceIndex);
 
     // Signals the worker to stop and joins it, tears down the QML window
     // and IPC. Idempotent; safe to call from closeEvent.
@@ -48,6 +48,12 @@ public:
     // Live recognition thresholds.
     void setMatchParams(const MatchParams& p);
     MatchParams matchParams() const;
+
+    // Live background media + effects — slider changes apply instantly while viz is running.
+    void setStandbyPath(const QString& path);
+    void setBgVideoPath(const QString& path);
+    void setBgOverlayDepth(float v);      // 0..1
+    void setBgColor(const QString& hex);
 
 signals:
     // Emitted from the worker thread; arrives queued on the GUI thread.

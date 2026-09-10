@@ -31,6 +31,8 @@ class QtVizSink : public QObject, public VizSink {
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
     Q_PROPERTY(QString standbyPath READ standbyPath NOTIFY standbyPathChanged)
     Q_PROPERTY(QString bgVideoPath READ bgVideoPath NOTIFY bgVideoPathChanged)
+    Q_PROPERTY(float bgOverlayDepth READ bgOverlayDepth NOTIFY bgOverlayDepthChanged)
+    Q_PROPERTY(QString bgColor READ bgColor NOTIFY bgColorChanged)
     Q_PROPERTY(QColor trackColor READ trackColor NOTIFY trackChanged)
     Q_PROPERTY(QVariantList trackColors READ trackColors NOTIFY trackChanged)
     Q_PROPERTY(QVariantList standbyColors READ standbyColors NOTIFY standbyColorsChanged)
@@ -134,7 +136,22 @@ public:
     }
     QString bgVideoPath() const { return bgVideoPath_; }
     Q_INVOKABLE void setBgVideoPath(const QString& p) {
+        fprintf(stderr, "[QtVizSink] setBgVideoPath: '%s' → '%s'\n",
+                bgVideoPath_.toUtf8().constData(), p.toUtf8().constData());
         if (bgVideoPath_ != p) { bgVideoPath_ = p; emit bgVideoPathChanged(); }
+    }
+    float bgOverlayDepth() const { return bgOverlayDepth_; }
+    Q_INVOKABLE void setBgOverlayDepth(float v) {
+        v = qBound(0.f, v, 1.f);
+        fprintf(stderr, "[QtVizSink] setBgOverlayDepth: %f\n", v);
+        if (!qFuzzyCompare(bgOverlayDepth_, v)) { bgOverlayDepth_ = v; emit bgOverlayDepthChanged(); }
+        else emit bgOverlayDepthChanged();  // always emit so QML gets initial push
+    }
+    QString bgColor() const { return bgColor_; }
+    Q_INVOKABLE void setBgColor(const QString& c) {
+        fprintf(stderr, "[QtVizSink] setBgColor: '%s'\n", c.toUtf8().constData());
+        if (bgColor_ != c) { bgColor_ = c; emit bgColorChanged(); }
+        else emit bgColorChanged();  // always emit so QML gets initial push
     }
     QColor trackColor() const { return trackColor_; }
     QVariantList trackColors() const { return trackColors_; }
@@ -150,6 +167,8 @@ signals:
     void closeRequested();
     void standbyColorsChanged();
     void effectiveColorsChanged();
+    void bgOverlayDepthChanged();
+    void bgColorChanged();
 
     // Cross-thread transport (emitted from worker threads).
     void sigTrack(bool valid, QString title, QString artist, QString album,
@@ -173,6 +192,8 @@ private:
     QString statusText_ = QStringLiteral("standby");
     QString standbyPath_;
     QString bgVideoPath_;
+    float bgOverlayDepth_ = 0.5f;
+    QString bgColor_ = "#000000";
     QColor trackColor_{48, 80, 120};
     QVariantList trackColors_{QColor(48,80,120), QColor(80,48,120), QColor(120,48,80)};
     QVariantList standbyColors_;   // empty → will be filled when standbyPath is set

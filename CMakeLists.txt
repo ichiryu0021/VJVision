@@ -59,8 +59,8 @@ target_include_directories(VJVision PRIVATE src)
 target_link_libraries(VJVision PRIVATE pffft sqlite3 ole32 shell32)
 
 if(VJVC_WITH_QT)
-    find_package(Qt6 REQUIRED COMPONENTS Gui Quick Widgets)
-    target_link_libraries(VJVision PRIVATE Qt6::Gui Qt6::Quick Qt6::Widgets)
+    find_package(Qt6 REQUIRED COMPONENTS Gui Quick Widgets Multimedia)
+    target_link_libraries(VJVision PRIVATE Qt6::Gui Qt6::Quick Qt6::Widgets Qt6::Multimedia)
     target_compile_definitions(VJVision PRIVATE VJVC_WITH_QT=1)
 endif()
 

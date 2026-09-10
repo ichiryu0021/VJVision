@@ -46,35 +46,52 @@ MatchParams VizController::matchParams() const {
     return params_;
 }
 
-bool VizController::start(const std::string& dbPath, int deviceIndex, int screenIndex) {
+void VizController::setStandbyPath(const QString& path) {
+    if (qtSink_) qtSink_->setStandbyPath(path);
+}
+void VizController::setBgVideoPath(const QString& path) {
+    if (qtSink_) qtSink_->setBgVideoPath(path);
+}
+void VizController::setBgOverlayDepth(float v) {
+    if (qtSink_) qtSink_->setBgOverlayDepth(v);
+}
+void VizController::setBgColor(const QString& hex) {
+    if (qtSink_) qtSink_->setBgColor(hex);
+}
+
+bool VizController::start(const std::string& dbPath, int deviceIndex) {
     if (running_.load()) return false;
 
-    {
+    // DB is now optional — empty dbPath → viz runs in standby-only mode,
+    // no track matching but still shows spectrum + captures audio.
+    if (!dbPath.empty()) {
         FpDb db;
         if (!db.open(dbPath)) {
-            emit logMessage(QStringLiteral("ERROR: cannot open DB: %1")
+            emit logMessage(QStringLiteral("WARNING: cannot open DB: %1 — running without track matching")
                                 .arg(QString::fromStdString(dbPath)));
-            return false;
+            // Continue — no DB = no track matching, but viz still works.
+        } else if (db.listSongs().empty()) {
+            emit logMessage(QStringLiteral("DB has no indexed songs — no track matching, but viz still starts."));
         }
-        if (db.listSongs().empty()) {
-            emit logMessage(QStringLiteral("DB has no indexed songs — index the library first."));
-            return false;
-        }
+    } else {
+        emit logMessage(QStringLiteral("No DB selected — running in standby-only mode."));
     }
 
     qtSink_ = std::make_shared<QtVizSink>();
-    if (!qtSink_->load(screenIndex)) {
+    // Windowed — user drags to any monitor, then presses F to fullscreen there.
+    if (!qtSink_->load(-1)) {
         emit logMessage(QStringLiteral("ERROR: failed to load visualizer QML."));
         qtSink_.reset();
         return false;
     }
 
-    // Auto-load standby image: <exe_dir>/standby.png (portable).
-    // Falls back to <db_dir>/standby.png if present.
+    // Auto-load standby image: <exe_dir>/data/standby.png → <exe_dir>/standby.png → <db_dir>/standby.png
     {
         QDir exeDir(QCoreApplication::applicationDirPath());
-        QString standby = exeDir.filePath(QStringLiteral("standby.png"));
-        if (!QFile::exists(standby)) {
+        QString standby = exeDir.filePath(QStringLiteral("data/standby.png"));
+        if (!QFile::exists(standby))
+            standby = exeDir.filePath(QStringLiteral("standby.png"));
+        if (!QFile::exists(standby) && !dbPath.empty()) {
             QDir dbDir(QString::fromStdString(fs::path(dbPath).parent_path().string()));
             QString dbStandby = dbDir.filePath(QStringLiteral("standby.png"));
             if (QFile::exists(dbStandby)) standby = dbStandby;
@@ -85,11 +102,13 @@ bool VizController::start(const std::string& dbPath, int deviceIndex, int screen
         }
     }
 
-    // Auto-load background video: <exe_dir>/bg_video.mp4 (portable).
+    // Auto-load background video: <exe_dir>/data/bg_video.mp4 → <exe_dir>/bg_video.mp4 → <db_dir>/bg_video.mp4
     {
         QDir exeDir(QCoreApplication::applicationDirPath());
-        QString video = exeDir.filePath(QStringLiteral("bg_video.mp4"));
-        if (!QFile::exists(video)) {
+        QString video = exeDir.filePath(QStringLiteral("data/bg_video.mp4"));
+        if (!QFile::exists(video))
+            video = exeDir.filePath(QStringLiteral("bg_video.mp4"));
+        if (!QFile::exists(video) && !dbPath.empty()) {
             QDir dbDir(QString::fromStdString(fs::path(dbPath).parent_path().string()));
             QString dbVideo = dbDir.filePath(QStringLiteral("bg_video.mp4"));
             if (QFile::exists(dbVideo)) video = dbVideo;
@@ -110,8 +129,8 @@ bool VizController::start(const std::string& dbPath, int deviceIndex, int screen
 
     running_.store(true);
     worker_ = std::thread(&VizController::workerFunc, this, dbPath, deviceIndex);
-    emit logMessage(QStringLiteral("Visualizer started (device=%1 screen=%2)")
-                        .arg(deviceIndex).arg(screenIndex));
+    emit logMessage(QStringLiteral("Visualizer started (device=%1, windowed — drag + F for fullscreen)")
+                        .arg(deviceIndex));
     emit sessionStarted();
     return true;
 }
@@ -144,11 +163,11 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
     };
 
     FpDb db;
-    if (!db.open(dbPath)) {
-        log("Cannot open DB " + dbPath);
-        // Keep running_ true: the session (QML + IPC) is alive and only
-        // the GUI thread may tear it down via stop().
-        return;
+    const bool hasDb = !dbPath.empty() && db.open(dbPath);
+    if (!hasDb && !dbPath.empty()) {
+        log("Cannot open DB " + dbPath + " — continuing without track matching.");
+    } else if (!hasDb) {
+        log("No DB — running without track matching.");
     }
 
     RingBuffer ring((size_t)fp_params::SAMPLE_RATE * 30);
@@ -191,8 +210,7 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
 
     // Cover extraction: tags are read once per song and cached to disk
     // next to the DB; QML loads the cached image directly.
-    const fs::path coverDir = pathutil::fromUtf8(dbPath).parent_path()
-                              / ".VJVision_covers";
+    fs::path coverDirPath;
     int lastCoverSong = -1;
     TrackEvent cachedTrack;
     auto buildTrackEvent = [&](int songId, bool tentative, float conf) -> TrackEvent {
@@ -209,9 +227,12 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
             if (!tags.artist.empty()) t.artist = tags.artist;
             if (!tags.album.empty())  t.album = tags.album;
             if (!tags.coverData.empty()) {
+                if (coverDirPath.empty()) {
+                    coverDirPath = pathutil::fromUtf8(dbPath).parent_path() / ".VJVision_covers";
+                }
                 std::error_code ec;
-                fs::create_directories(coverDir, ec);
-                fs::path cf = coverDir /
+                fs::create_directories(coverDirPath, ec);
+                fs::path cf = coverDirPath /
                     ("song_" + std::to_string(songId) + "." + tags.coverExt);
                 FILE* fp = nullptr;
                 if (_wfopen_s(&fp, cf.c_str(), L"wb") == 0 && fp) {
@@ -302,19 +323,24 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
         }
         lastAudioTime = now;
         // Peak passed — now read the ring buffer for fingerprint matching.
-        auto snap = ring.readLatest(windowSamples);
-        float gain = 0.95f / peak;
-        for (size_t i = 0; i < windowSamples; ++i) {
-            float v = snap[i] * gain;
-            if (v > 1.f) v = 1.f;
-            if (v < -1.f) v = -1.f;
-            i16[i] = (int16_t)(v * 32767.f);
-        }
-        auto fps = fingerprintSignal(i16.data(), windowSamples, fp_params::SAMPLE_RATE);
+        // Skip DB matching if no DB available (standby-only mode).
         FpResult result;
-        if (!fps.empty()) {
-            auto hits = db.lookupHashes(fps);
-            result = alignMatches(fps, hits, (int)fps.size());
+        size_t fpsCount = 0;
+        if (hasDb) {
+            auto snap = ring.readLatest(windowSamples);
+            float gain = 0.95f / peak;
+            for (size_t i = 0; i < windowSamples; ++i) {
+                float v = snap[i] * gain;
+                if (v > 1.f) v = 1.f;
+                if (v < -1.f) v = -1.f;
+                i16[i] = (int16_t)(v * 32767.f);
+            }
+            auto fps = fingerprintSignal(i16.data(), windowSamples, fp_params::SAMPLE_RATE);
+            fpsCount = fps.size();
+            if (!fps.empty()) {
+                auto hits = db.lookupHashes(fps);
+                result = alignMatches(fps, hits, (int)fps.size());
+            }
         }
         MatchTick mt = engine.tick(result, nowSec);
 
@@ -329,7 +355,7 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
             case MatchEvent::Confirmed:   evName = "CONFIRMED"; break;
         }
         fprintf(stderr, "[viz] tick event=%-10s conf=%.4f songId=%d fps=%zu\n",
-                evName, mt.confidence, mt.songId, fps.size());
+                evName, mt.confidence, mt.songId, fpsCount);
 
         if (mt.event == MatchEvent::Confirmed || mt.event == MatchEvent::Tentative) {
             bool tentative = (mt.event == MatchEvent::Tentative);

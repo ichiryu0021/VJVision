@@ -267,9 +267,9 @@ static int listenCmd(const std::string& dbPath, int deviceIndex) {
 // viz / panel: Qt front-ends (M3 / M4)
 // ------------------------------------------------------------------
 #ifdef VJVC_WITH_QT
-// Standalone fullscreen visualizer (same session class as the panel).
+// Standalone visualizer (windowed, drag to any monitor, F to fullscreen).
 static int vizCmd(int argc, char** argv, const std::string& dbPath,
-                  int deviceIndex, int screenIndex) {
+                  int deviceIndex) {
     QApplication app(argc, argv);
 
     VizController ctl;
@@ -277,7 +277,7 @@ static int vizCmd(int argc, char** argv, const std::string& dbPath,
         [](const QString& line) {
             printf("%s\n", line.toUtf8().constData());
         }, Qt::DirectConnection);
-    if (!ctl.start(dbPath, deviceIndex, screenIndex)) return 1;
+    if (!ctl.start(dbPath, deviceIndex)) return 1;
     // In standalone mode, closing the visualizer (Escape) exits the app.
     QObject::connect(&ctl, &VizController::sessionStopped,
                      &app, [&] { app.quit(); });
@@ -390,12 +390,11 @@ int main(int argc, char** argv) {
         int idx = -1;
         if (argc == 4) idx = std::atoi(argv[3]);
         return listenCmd(argv[2], idx);
-    } else if (cmd == "viz" && (argc >= 3 && argc <= 5)) {
+    } else if (cmd == "viz" && (argc >= 3 && argc <= 4)) {
 #ifdef VJVC_WITH_QT
-        int dev = -1, scr = -1;
+        int dev = -1;
         if (argc >= 4) dev = std::atoi(argv[3]);
-        if (argc >= 5) scr = std::atoi(argv[4]);
-        return vizCmd(argc, argv, argv[2], dev, scr);
+        return vizCmd(argc, argv, argv[2], dev);
 #else
         fprintf(stderr, "This build has no Qt support (-DVJVC_WITH_QT=OFF).\n");
         return 1;
