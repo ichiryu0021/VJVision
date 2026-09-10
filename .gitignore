@@ -60,8 +60,9 @@ Thumbs.db
 # --- vcpkg ---
 vcpkg_installed/
 
-# --- Build artifacts (deploy zip output) ---
+# --- Build artifacts (windeployqt + Release bundles) ---
 deploy/
+release/
 
 # --- Trae IDE workspace (local) ---
 .trae/
