@@ -1,0 +1,7 @@
+set(__QT_DEPLOY_TARGET_pffft_FILE C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/Debug/pffft.lib)
+set(__QT_DEPLOY_TARGET_pffft_TYPE STATIC_LIBRARY)
+set(__QT_DEPLOY_TARGET_sqlite3_FILE C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/Debug/sqlite3.lib)
+set(__QT_DEPLOY_TARGET_sqlite3_TYPE STATIC_LIBRARY)
+set(__QT_DEPLOY_TARGET_vjvcplus_FILE C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/Debug/vjvcplus.exe)
+set(__QT_DEPLOY_TARGET_vjvcplus_TYPE EXECUTABLE)
+set(__QT_DEPLOY_TARGET_vjvcplus_RUNTIME_DLLS C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6Quickd.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6Widgetsd.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6QmlMetad.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6QmlWorkerScriptd.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6QmlModelsd.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6Qmld.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6OpenGLd.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6Networkd.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6Guid.dll;C:/Users/jason/Qt/6.8.3/msvc2022_64/bin/Qt6Cored.dll)

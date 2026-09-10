@@ -1,0 +1,4 @@
+C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/pffft.dir
+C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/sqlite3.dir
+C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus.dir
+C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/ALL_BUILD.dir

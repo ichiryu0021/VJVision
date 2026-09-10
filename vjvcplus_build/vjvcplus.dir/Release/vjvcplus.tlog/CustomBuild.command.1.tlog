@@ -1,0 +1,32 @@
+^C:\USERS\JASON\DOCUMENTS\TRAE_PROJECTS\VJPRG\VJVCPLUS_BUILD\CMAKEFILES\C549B09E014BC248A39CF6866BF8EA36\TIMESTAMP_(CONFIG).RULE
+setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autogen C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutogenInfo.json Release
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E touch C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/timestamp_Release
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_transform_depfile "Visual Studio 17 2022" MSBuildAdditionalInputs C:/Users/jason/Documents/trae_projects/VJVCPlusCpp C:/Users/jason/Documents/trae_projects/VJVCPlusCpp C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/vjvcplus_autogen/deps_Release C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/d/15deae3e50223d0ca90e989261e576919839d4eb7126aa3b1b19fb78cfbecc9e.AdditionalInputs
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\USERS\JASON\DOCUMENTS\TRAE_PROJECTS\VJPRG\VJVCPLUS_BUILD\CMAKEFILES\F8608FCB35AD879BD87C0AA6C86793CB\QRC_VIZ_(CONFIG).CPP.RULE
+setlocal
+cd C:\Users\jason\Documents\trae_projects\VJprg\vjvcplus_build
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+C:\cmake-4.4.3-windows-x86_64\bin\cmake.exe -E cmake_autorcc C:/Users/jason/Documents/trae_projects/VJprg/vjvcplus_build/CMakeFiles/vjvcplus_autogen.dir/AutoRcc_viz_WORAJ6MAXX_Info.json Release
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
