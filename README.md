@@ -8,12 +8,6 @@ VJVision listens to the DJ booth output, auto-recognises the playing track, and 
 
 ---
 
-## 界面预览 / Screenshots
-
-| 控制台（主屏）/ Console (primary) | 可视化输出（待机画面）/ Visualizer (standby) |
-|---|---|
-| ![console](docs/images/console.png) | ![standby](docs/images/standby.png) |
-
 ## 功能 / Features
 
 - **自动曲目识别**：声学指纹（FFT → 峰值 → 哈希 → SQLite 索引），12 秒采样窗口实时识别 / **Automatic recognition** — Acoustic fingerprint (FFT → peaks → hash → SQLite index), 12 s sampling window
