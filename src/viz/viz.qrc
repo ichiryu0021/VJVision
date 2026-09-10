@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/viz">
+        <file>qml/viz.qml</file>
+    </qresource>
+</RCC>

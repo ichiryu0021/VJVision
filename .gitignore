@@ -1,31 +1,61 @@
-# Build artifacts (NEVER commit)
-build/
-dist/
-dist-onefile/
-*.spec.bak
-*.zip
-*.exe
-*.egg-info/
+# ================================================================
+# VJVision 2.0 (C++ rewrite)
+# ================================================================
 
-# Python
+# --- CMake build directories ---
+build/
+vjvcplus_build/
+out/
+cmake-build-*/
+
+# --- Qt auto-generated files ---
+**/moc_*.cpp
+**/qrc_*.cpp
+**/ui_*.h
+**/.qt/
+**/vjvcplus_autogen/
+
+# --- Compiled binaries ---
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.exp
+
+# --- Python (v1 legacy) ---
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+*.spec.bak
+*.egg-info/
 
-# Cache & runtime data (regenerated on first run)
-cache/covers/
-cache/*.db
-cache/*.sqlite
-cache/*.log
+# --- Runtime / generated data ---
+.cache/
 data/
 *.log
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.db-journal
+*.obj
+*.zip
 
-# IDE
+# --- IDE ---
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Temp
+# --- Temp / OS ---
 tmp/
 *.tmp
+.DS_Store
+Thumbs.db
 
+# --- vcpkg ---
+vcpkg_installed/

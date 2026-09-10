@@ -1,0 +1,182 @@
+// In-process Qt Quick renderer: a VizSink implementation that exposes
+// state to QML via context properties. Worker threads (capture/match) may
+// call the VizSink methods directly; signals cross to the GUI thread
+// through Qt's queued connections.
+#pragma once
+#include "viz_events.h"
+
+#include <QObject>
+#include <QString>
+#include <QVariantList>
+#include <QColor>
+#include <QImage>
+#include <QUrl>
+#include <QFile>
+
+class QQmlApplicationEngine;
+
+namespace vj {
+
+class QtVizSink : public QObject, public VizSink {
+    Q_OBJECT
+    Q_PROPERTY(bool hasTrack READ hasTrack NOTIFY trackChanged)
+    Q_PROPERTY(QString title READ title NOTIFY trackChanged)
+    Q_PROPERTY(QString artist READ artist NOTIFY trackChanged)
+    Q_PROPERTY(QString album READ album NOTIFY trackChanged)
+    Q_PROPERTY(bool tentative READ tentative NOTIFY trackChanged)
+    Q_PROPERTY(float confidence READ confidence NOTIFY trackChanged)
+    Q_PROPERTY(QString coverPath READ coverPath NOTIFY trackChanged)
+    Q_PROPERTY(QVariantList bins READ bins NOTIFY binsChanged)
+    Q_PROPERTY(float peak READ peak NOTIFY binsChanged)
+    Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
+    Q_PROPERTY(QString standbyPath READ standbyPath NOTIFY standbyPathChanged)
+    Q_PROPERTY(QString bgVideoPath READ bgVideoPath NOTIFY bgVideoPathChanged)
+    Q_PROPERTY(QColor trackColor READ trackColor NOTIFY trackChanged)
+    Q_PROPERTY(QVariantList trackColors READ trackColors NOTIFY trackChanged)
+    Q_PROPERTY(QVariantList standbyColors READ standbyColors NOTIFY standbyColorsChanged)
+    // Flat list [r0,g0,b0, r1,g1,b1, r2,g2,b2] — integers 0-255.
+    // QML Canvas binds this and does its own lerp for fade transitions.
+    Q_PROPERTY(QVariantList effectiveColors READ effectiveColors NOTIFY effectiveColorsChanged)
+
+public:
+    explicit QtVizSink(QObject* parent = nullptr);
+    ~QtVizSink() override;
+
+    // Create the QML window fullscreen on the given screen index
+    // (-1 = primary screen). Returns false on QML load errors.
+    bool load(int screenIndex);
+
+    // Called from QML when the user presses Escape on the fullscreen
+    // window. The owner (VizController) tears the session down; the
+    // panel itself stays open.
+    Q_INVOKABLE void requestClose();
+
+    // VizSink — safe to call from any thread.
+    void onTrack(const TrackEvent& t) override;
+    void onSpectrum(const float* bins, int count, float peak) override;
+    void onStatus(VizStatus status) override;
+
+    bool hasTrack() const { return hasTrack_; }
+    QString title() const { return title_; }
+    QString artist() const { return artist_; }
+    QString album() const { return album_; }
+    bool tentative() const { return tentative_; }
+    float confidence() const { return confidence_; }
+    QString coverPath() const { return coverPath_; }
+    QVariantList bins() const { return bins_; }
+    float peak() const { return peak_; }
+    QString statusText() const { return statusText_; }
+    QString standbyPath() const { return standbyPath_; }
+    Q_INVOKABLE void setStandbyPath(const QString& p) {
+        // Convert "file:///C:/path.png" → "C:/path.png"
+        QString localPath = p;
+        if (localPath.startsWith("file:///"))
+            localPath = localPath.mid(8);  // strip "file:///"
+        printf("[viz] setStandbyPath: p='%s' localPath='%s'\n",
+               p.toUtf8().constData(), localPath.toUtf8().constData());
+        if (standbyPath_ != p) { standbyPath_ = p; emit standbyPathChanged(); }
+
+        // Sample colors from the standby image
+        if (!localPath.isEmpty()) {
+            QImage img(localPath);
+            printf("[viz] setStandbyPath: img.isNull()=%d size=%dx%d\n",
+                   img.isNull(), img.width(), img.height());
+            if (!img.isNull()) {
+                img = img.scaled(64, 64, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+                struct Bucket { int64_t r=0,g=0,b=0; int count=0; };
+                Bucket buckets[64];
+                for (int y = 0; y < img.height(); ++y) {
+                    for (int x = 0; x < img.width(); ++x) {
+                        QColor c = img.pixelColor(x, y);
+                        int maxCh = qMax(c.red(), qMax(c.green(), c.blue()));
+                        if (maxCh < 20) continue;
+                        int qr = c.red() >> 6, qg = c.green() >> 6, qb = c.blue() >> 6;
+                        int idx = (qr << 4) | (qg << 2) | qb;
+                        buckets[idx].r += c.red(); buckets[idx].g += c.green();
+                        buckets[idx].b += c.blue(); buckets[idx].count++;
+                    }
+                }
+                int top[3]={-1,-1,-1}, topCount[3]={0,0,0};
+                for (int i=0;i<64;++i) {
+                    if (buckets[i].count<=0) continue;
+                    if (buckets[i].count>topCount[0]) {
+                        top[2]=top[1]; topCount[2]=topCount[1];
+                        top[1]=top[0]; topCount[1]=topCount[0];
+                        top[0]=i; topCount[0]=buckets[i].count;
+                    } else if (buckets[i].count>topCount[1]) {
+                        top[2]=top[1]; topCount[2]=topCount[1];
+                        top[1]=i; topCount[1]=buckets[i].count;
+                    } else if (buckets[i].count>topCount[2]) {
+                        top[2]=i; topCount[2]=buckets[i].count;
+                    }
+                }
+                QVariantList qv;
+                for (int k=0;k<3 && top[k]>=0;++k) {
+                    Bucket& b=buckets[top[k]];
+                    qv << QColor((int)(b.r/b.count),(int)(b.g/b.count),(int)(b.b/b.count));
+                }
+                if (!qv.isEmpty()) {
+                    standbyColors_ = qv;
+                    emit standbyColorsChanged();
+                    if (!hasTrack_) {
+                        effectiveColors_.clear();
+                        for (int i=0;i<qv.size()&&i<3;++i) {
+                            QColor c = qv[i].value<QColor>();
+                            effectiveColors_ << c.red() << c.green() << c.blue();
+                        }
+                        while (effectiveColors_.size()<9)
+                            effectiveColors_ << 80 << 80 << 120;
+                        emit effectiveColorsChanged();
+                    }
+                }
+            }
+        }
+    }
+    QString bgVideoPath() const { return bgVideoPath_; }
+    Q_INVOKABLE void setBgVideoPath(const QString& p) {
+        if (bgVideoPath_ != p) { bgVideoPath_ = p; emit bgVideoPathChanged(); }
+    }
+    QColor trackColor() const { return trackColor_; }
+    QVariantList trackColors() const { return trackColors_; }
+    QVariantList standbyColors() const { return standbyColors_; }
+    QVariantList effectiveColors() const { return effectiveColors_; }
+
+signals:
+    void trackChanged();
+    void binsChanged();
+    void statusChanged();
+    void standbyPathChanged();
+    void bgVideoPathChanged();
+    void closeRequested();
+    void standbyColorsChanged();
+    void effectiveColorsChanged();
+
+    // Cross-thread transport (emitted from worker threads).
+    void sigTrack(bool valid, QString title, QString artist, QString album,
+                  QString coverPath, bool tentative, float confidence,
+                  QVariantList colors);
+    void sigSpectrum(QVariantList bins, float peak);
+    void sigStatus(QString statusText);
+
+private:
+    QQmlApplicationEngine* engine_ = nullptr;
+
+    bool hasTrack_ = false;
+    QString title_;
+    QString artist_;
+    QString album_;
+    QString coverPath_;
+    bool tentative_ = false;
+    float confidence_ = 0.f;
+    QVariantList bins_;
+    float peak_ = 0.f;
+    QString statusText_ = QStringLiteral("standby");
+    QString standbyPath_;
+    QString bgVideoPath_;
+    QColor trackColor_{48, 80, 120};
+    QVariantList trackColors_{QColor(48,80,120), QColor(80,48,120), QColor(120,48,80)};
+    QVariantList standbyColors_;   // empty → will be filled when standbyPath is set
+    QVariantList effectiveColors_; // flat [r0,g0,b0, r1,g1,b1, r2,g2,b2]
+};
+
+} // namespace vj
