@@ -160,12 +160,16 @@ IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
     for (auto& t : pool) t.join();
 
     // --- 4. Rebuild index and commit the bulk transaction ----------
+    // 即使 cancel 也必须重建索引并提交事务，否则：
+    //   (a) 下次调用 indexDirectory 时 BEGIN 会失败
+    //       ("cannot start a transaction within a transaction")；
+    //   (b) 已删除的查询索引不会被恢复，匹配性能崩溃。
     db.recreateIndexAfterBulk();
     db.commitTx();
 
     if (cancel && cancel->load()) {
         if (cb) cb({summary.skipped + summary.indexedOk + summary.failed,
-                    summary.totalFiles, "Cancelled"});
+                    summary.totalFiles, "Cancelled (partial commit kept)"});
         return summary;
     }
 

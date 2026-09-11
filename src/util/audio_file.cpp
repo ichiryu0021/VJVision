@@ -112,8 +112,11 @@ LoadedAudio loadFlac(const std::string& path) {
     if (flacSize <= 0) { fclose(f); throw std::runtime_error("dr_flac: empty after ID3 skip: " + path); }
 
     std::vector<uint8_t> buf(flacSize);
-    fread(buf.data(), 1, flacSize, f);
+    size_t bytesRead = fread(buf.data(), 1, flacSize, f);
     fclose(f);  // close before drflac_open_memory — it doesn't need the FILE*
+    if (bytesRead != (size_t)flacSize) {
+        throw std::runtime_error("dr_flac: short read on " + path);
+    }
 
     drflac* flac = drflac_open_memory(buf.data(), flacSize, nullptr);
     if (!flac) throw std::runtime_error("dr_flac: failed to open " + path);

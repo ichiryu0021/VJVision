@@ -31,10 +31,8 @@ public:
         std::vector<float> out(n, 0.f);
         size_t take = (std::min)(n, size_);
         if (take == 0) return out;
-        // Index of the oldest available sample.
-        size_t start = (head_ + cap_ - size_) % cap_;
-        // We want the last `take` samples.
-        start = (head_ + cap_ - take) % cap_;
+        // Index of the oldest sample we want (last `take` samples).
+        size_t start = (head_ + cap_ - take) % cap_;
         for (size_t i = 0; i < take; ++i)
             out[n - take + i] = buf_[(start + i) % cap_];
         return out;

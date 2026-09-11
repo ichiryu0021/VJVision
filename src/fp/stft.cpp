@@ -44,7 +44,6 @@ Spectrogram computeSpectrogram(const int16_t* samples, size_t numSamples, int sa
             frame[i] = (frame[i] - mean) * hann[i];
 
         auto bins = vjfft::rfft(frame.data(), N);
-
         for (int f = 0; f < numFreq; ++f) {
             double re = bins[f].real();
             double im = bins[f].imag();

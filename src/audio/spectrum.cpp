@@ -34,15 +34,16 @@ SpectrumAnalyzer::SpectrumAnalyzer(int sampleRate) : sr_(sampleRate) {
 void SpectrumAnalyzer::reset() { gain_ = 1.f; }
 
 void SpectrumAnalyzer::analyze(const float* samples, size_t n, float* outBins) {
-    std::vector<double> windowed(FFT_SIZE, 0.0);
+    if ((int)windowedBuf_.size() != FFT_SIZE) windowedBuf_.assign(FFT_SIZE, 0.0);
+    else std::fill(windowedBuf_.begin(), windowedBuf_.end(), 0.0);
     size_t take = std::min(n, (size_t)FFT_SIZE);
     // Newest samples at the tail (zero-pad at front when not enough).
     size_t offset = FFT_SIZE - take;
     for (size_t i = 0; i < take; ++i) {
         double w = 0.5 - 0.5 * std::cos(2.0 * PI * (double)(i + offset) / (FFT_SIZE - 1));
-        windowed[i + offset] = (double)samples[i] * w;
+        windowedBuf_[i + offset] = (double)samples[i] * w;
     }
-    auto spec = vjfft::rfft(windowed.data(), FFT_SIZE);
+    auto spec = vjfft::rfft(windowedBuf_.data(), FFT_SIZE);
 
     float bandMax = 0.f;
     for (int b = 0; b < VIZ_SPECTRUM_BINS; ++b) {

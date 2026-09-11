@@ -6,6 +6,12 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <string>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 
 namespace vj {
 
@@ -28,6 +34,58 @@ uint32_t syncsafe(const uint8_t* p) {
             (uint32_t)(p[3] & 0x7f);
 }
 
+// Decode a Latin1-tagged ID3 text field (enc==0). Many Chinese/Japanese
+// MP3s abuse the Latin1 encoding marker to store GBK/CP932/Shift-JIS bytes.
+// Try CP936 (GBK) first, then CP932 (Shift-JIS); fall back to a strict
+// Latin1→UTF-8 mapping so non-ASCII bytes survive rather than corrupt.
+std::string latin1FieldToUtf8(const uint8_t* s, size_t len) {
+    bool hasNonAscii = false;
+    for (size_t i = 0; i < len; ++i) {
+        if (s[i] >= 0x80) { hasNonAscii = true; break; }
+    }
+    if (!hasNonAscii) return std::string((const char*)s, len);
+
+    // Try GBK (codepage 936).
+    int wlen = MultiByteToWideChar(936, MB_ERR_INVALID_CHARS,
+                                   (const char*)s, (int)len, nullptr, 0);
+    if (wlen > 0) {
+        std::wstring w(wlen, 0);
+        MultiByteToWideChar(936, MB_ERR_INVALID_CHARS,
+                            (const char*)s, (int)len, &w[0], wlen);
+        int ulen = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), wlen,
+                                       nullptr, 0, nullptr, nullptr);
+        std::string out(ulen, 0);
+        WideCharToMultiByte(CP_UTF8, 0, w.c_str(), wlen,
+                            &out[0], ulen, nullptr, nullptr);
+        return out;
+    }
+    // Try Shift-JIS (codepage 932).
+    wlen = MultiByteToWideChar(932, MB_ERR_INVALID_CHARS,
+                               (const char*)s, (int)len, nullptr, 0);
+    if (wlen > 0) {
+        std::wstring w(wlen, 0);
+        MultiByteToWideChar(932, MB_ERR_INVALID_CHARS,
+                            (const char*)s, (int)len, &w[0], wlen);
+        int ulen = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), wlen,
+                                       nullptr, 0, nullptr, nullptr);
+        std::string out(ulen, 0);
+        WideCharToMultiByte(CP_UTF8, 0, w.c_str(), wlen,
+                            &out[0], ulen, nullptr, nullptr);
+        return out;
+    }
+    // Last resort: strict Latin1 → UTF-8 (U+0080..U+00FF).
+    std::string out;
+    out.reserve(len * 2);
+    for (size_t i = 0; i < len; ++i) {
+        if (s[i] < 0x80) out.push_back((char)s[i]);
+        else {
+            out.push_back((char)(0xC0 | (s[i] >> 6)));
+            out.push_back((char)(0x80 | (s[i] & 0x3F)));
+        }
+    }
+    return out;
+}
+
 // Decode an ID3 text field. `enc`: 0=latin1, 1=UTF-16 BOM, 2=UTF-16BE, 3=UTF-8
 std::string decodeText(const uint8_t* p, size_t n) {
     if (n == 0) return {};
@@ -37,8 +95,8 @@ std::string decodeText(const uint8_t* p, size_t n) {
     if (enc == 3) { // UTF-8
         return std::string((const char*)s, len);
     }
-    if (enc == 0) { // ISO-8859-1 → as-is (Latin chars survive in UTF-8 mostly)
-        return std::string((const char*)s, len);
+    if (enc == 0) { // ISO-8859-1 marker, but often abused to hold GBK/CP932
+        return latin1FieldToUtf8(s, len);
     }
     // UTF-16 (1: BOM, 2: BE without BOM)
     bool be = (enc == 2);

@@ -62,9 +62,12 @@ void FpDb::exec(const char* sql) {
 int FpDb::insertSong(const std::string& name, const std::string& sha1,
                      int totalHashes, const std::string& filePath) {
     sqlite3_stmt* stmt = nullptr;
-    sqlite3_prepare_v2(db_,
+    if (sqlite3_prepare_v2(db_,
         "INSERT INTO songs (song_name, file_sha1, total_hashes) VALUES (?, ?, ?);",
-        -1, &stmt, nullptr);
+        -1, &stmt, nullptr) != SQLITE_OK) {
+        fprintf(stderr, "SQLite prepare failed (insert songs): %s\n", sqlite3_errmsg(db_));
+        return -1;
+    }
     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, sha1.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 3, totalHashes);
@@ -72,16 +75,22 @@ int FpDb::insertSong(const std::string& name, const std::string& sha1,
     sqlite3_finalize(stmt);
     int songId = (int)sqlite3_last_insert_rowid(db_);
 
-    sqlite3_prepare_v2(db_,
+    if (sqlite3_prepare_v2(db_,
         "INSERT OR REPLACE INTO song_paths (song_id, file_path) VALUES (?, ?);",
-        -1, &stmt, nullptr);
+        -1, &stmt, nullptr) != SQLITE_OK) {
+        fprintf(stderr, "SQLite prepare failed (song_paths): %s\n", sqlite3_errmsg(db_));
+        return songId;
+    }
     sqlite3_bind_int(stmt, 1, songId);
     sqlite3_bind_text(stmt, 2, filePath.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
-    sqlite3_prepare_v2(db_, "UPDATE songs SET fingerprinted=1 WHERE song_id=?;",
-                       -1, &stmt, nullptr);
+    if (sqlite3_prepare_v2(db_, "UPDATE songs SET fingerprinted=1 WHERE song_id=?;",
+                       -1, &stmt, nullptr) != SQLITE_OK) {
+        fprintf(stderr, "SQLite prepare failed (update fingerprinted): %s\n", sqlite3_errmsg(db_));
+        return songId;
+    }
     sqlite3_bind_int(stmt, 1, songId);
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -90,9 +99,12 @@ int FpDb::insertSong(const std::string& name, const std::string& sha1,
 
 void FpDb::insertHashes(int songId, const std::vector<Fingerprint>& hashes) {
     sqlite3_stmt* stmt = nullptr;
-    sqlite3_prepare_v2(db_,
+    if (sqlite3_prepare_v2(db_,
         "INSERT OR IGNORE INTO fingerprints (song_id, hash, offset) VALUES (?, ?, ?);",
-        -1, &stmt, nullptr);
+        -1, &stmt, nullptr) != SQLITE_OK) {
+        fprintf(stderr, "SQLite prepare failed (insert fingerprints): %s\n", sqlite3_errmsg(db_));
+        return;
+    }
     for (const auto& fp : hashes) {
         sqlite3_bind_int(stmt, 1, songId);
         sqlite3_bind_text(stmt, 2, fp.hash.c_str(), -1, SQLITE_TRANSIENT);

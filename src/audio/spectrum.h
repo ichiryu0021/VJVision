@@ -29,6 +29,7 @@ private:
     std::vector<int> binStart_;   // FFT bin range per Mel band
     std::vector<int> binEnd_;
     float gain_ = 1.f;           // slow AGC for visual normalization
+    std::vector<double> windowedBuf_;  // reused across analyze() calls
 };
 
 } // namespace vj

@@ -38,12 +38,19 @@ void IpcVizSink::stop() {
                            OPEN_EXISTING, 0, nullptr);
     if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
     if (acceptor_.joinable()) acceptor_.join();
-    std::lock_guard<std::mutex> lk(clientsMtx_);
-    for (Client* c : clients_) {
+    // Snapshot clients_ under the lock, then release it before joining
+    // writers — writerLoop no longer touches clientsMtx_ on exit, but
+    // holding the lock while join() would still risk deadlock if any
+    // future code path in writer tries to acquire it.
+    std::vector<Client*> clientsCopy;
+    {
+        std::lock_guard<std::mutex> lk(clientsMtx_);
+        clientsCopy.swap(clients_);   // clients_ now empty
+    }
+    for (Client* c : clientsCopy) {
         if (c->writer.joinable()) c->writer.join();
         delete c;
     }
-    clients_.clear();
 }
 
 void IpcVizSink::acceptorLoop() {
@@ -92,16 +99,14 @@ void IpcVizSink::writerLoop(Client* c) {
             break;
         }
     }
-    // Cleanup this client.
-    if (c->handle) CloseHandle((HANDLE)c->handle);
-    c->handle = nullptr;
-    std::lock_guard<std::mutex> lk(clientsMtx_);
-    for (auto it = clients_.begin(); it != clients_.end(); ++it) {
-        if (*it == c) { clients_.erase(it); break; }
+    // Only close the pipe handle here — stop() owns Client lifetime now.
+    // Previously this thread erased itself from clients_ and `delete c`'d
+    // its own struct, which deadlocked against stop() holding clientsMtx_
+    // while joining this thread.
+    if (c->handle) {
+        CloseHandle((HANDLE)c->handle);
+        c->handle = nullptr;
     }
-    // This thread is c->writer itself: detach before freeing the struct.
-    c->writer.detach();
-    delete c;
 }
 
 void IpcVizSink::broadcast(std::string msg) {

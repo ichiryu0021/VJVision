@@ -112,11 +112,17 @@ void WasapiCapture::close() { stop(); }
 
 void WasapiCapture::threadFunc() {
     HRESULT coHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    if (FAILED(coHr)) {
+        fprintf(stderr, "[wasapi] CoInitializeEx failed: 0x%08lx — capture disabled\n",
+                (unsigned long)coHr);
+        lost_.store(true);
+        return;
+    }
     while (running_.load()) {
         if (runOnce()) break;  // true = stop requested
         // false = device missing/lost: runOnce already slept; retry.
     }
-    if (SUCCEEDED(coHr)) CoUninitialize();
+    CoUninitialize();
 }
 
 // Returns true when the thread should exit (stop requested),
