@@ -14,6 +14,7 @@
 #include <QFile>
 
 class QQmlApplicationEngine;
+class QQuickWindow;
 
 namespace vj {
 
@@ -47,8 +48,8 @@ public:
     explicit QtVizSink(QObject* parent = nullptr);
     ~QtVizSink() override;
 
-    // Create the QML window fullscreen on the given screen index
-    // (-1 = primary screen). Returns false on QML load errors.
+    // Create the QML window on the given screen index (-1 = primary).
+    // Returns false on QML load errors.
     bool load(int screenIndex);
 
     // Called from QML when the user presses Escape on the fullscreen
@@ -204,8 +205,17 @@ signals:
     void sigSpectrum(QVariantList bins, float peak);
     void sigStatus(QString statusText);
 
+    // GPU TDR / device-lost recovery lifecycle.
+    void gpuRecovered(int attempt);
+    void gpuRecoveryFailed();
+
 private:
+    bool recreateEngine();               // core: delete + reload + re-bind + re-emit
+    void onSceneGraphError(int error, const QString& msg);
+    void scheduleRecovery();
+
     QQmlApplicationEngine* engine_ = nullptr;
+    QQuickWindow* vizWindow_ = nullptr;   // cached after load()
 
     bool hasTrack_ = false;
     QString title_;
@@ -228,6 +238,14 @@ private:
     int vizMode_ = 0;
     float logoSizeStandby_ = 1.0f;
     float logoSizePlaying_ = 0.30f;
+
+    // --- TDR recovery state ---
+    int screenIndex_ = -1;               // which screen we launched on
+    qint64 lastRecoveryMs_ = 0;          // throttle: min 5s between attempts
+    int recoveryAttempts_ = 0;           // throttle: max 5 consecutive
+    static constexpr int kMinRecoveryIntervalMs = 5000;
+    static constexpr int kMaxRecoveryAttempts = 5;
+    static constexpr int kRecoveryDelayMs = 500;  // wait for GPU to settle
 };
 
 } // namespace vj

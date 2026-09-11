@@ -94,7 +94,9 @@ bool VizController::start(const std::string& dbPath, int deviceIndex) {
         return false;
     }
 
-    // Auto-load standby image: <exe_dir>/data/standby.png → <exe_dir>/standby.png → <db_dir>/standby.png
+    // Auto-load standby image. Search order:
+    //   <exe_dir>/data/standby.png (portable) → <exe_dir>/standby.png →
+    //   <dataDir>/standby.png (installed: ~/Documents/VJVision_data, where the DB lives)
     {
         QDir exeDir(QCoreApplication::applicationDirPath());
         QString standby = exeDir.filePath(QStringLiteral("data/standby.png"));
@@ -111,7 +113,7 @@ bool VizController::start(const std::string& dbPath, int deviceIndex) {
         }
     }
 
-    // Auto-load background video: <exe_dir>/data/bg_video.mp4 → <exe_dir>/bg_video.mp4 → <db_dir>/bg_video.mp4
+    // Auto-load background video. Same search order as the standby image above.
     {
         QDir exeDir(QCoreApplication::applicationDirPath());
         QString video = exeDir.filePath(QStringLiteral("data/bg_video.mp4"));

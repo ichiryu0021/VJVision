@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
-project(VJVision VERSION 2.0.1 LANGUAGES C CXX)
+project(VJVision VERSION 2.0.2 LANGUAGES C CXX)
 
 # VJVision 2.0 — C++ rewrite (v1 was Python/dejavu).
-set(VJVISION_VERSION "2.0.1" CACHE STRING "VJVision version string")
+set(VJVISION_VERSION "2.0.2" CACHE STRING "VJVision version string")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

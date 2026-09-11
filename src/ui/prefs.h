@@ -1,6 +1,7 @@
-// Persisted user preferences. Portable by design: the JSON file lives
-// next to the executable (USB-stick deployment must not touch the
-// registry / AppData).
+// Persisted user preferences. Data location adapts to how the app runs:
+//   • Portable copy (writable exe folder) → <exe_dir>/data/
+//   • Installed under Program Files      → ~/Documents/VJVision_data/
+// Resolved at runtime; never stored in the JSON.
 #pragma once
 #include "../engine/match_engine.h"
 #include <QString>
@@ -8,7 +9,7 @@
 namespace vj {
 
 struct Prefs {
-    QString dataDir;           // data folder (holds VJVision.db + VJVision_prefs.json + covers + standby)
+    QString dataDir;           // data folder (VJVision.db + prefs JSON + covers + standby)
     QString musicDir;          // last indexed music directory
     int deviceIdx = -1;        // capture endpoint (-1 = default loopback)
     QString standbyPath;       // optional standby logo file
@@ -22,11 +23,11 @@ struct Prefs {
     float logoSizePlaying = 0.30f;  // playing logo ratio (landscape default 0.30)
     MatchParams match;         // live recognition thresholds
 
-    // Convenience: resolve <dataDir>/VJVision.db (empty if dataDir empty)
+    // Convenience: resolve <dataDir>/VJVision.db
     QString dbPath() const;
-    // Resolve <dataDir>/VJVision_prefs.json
-    static QString defaultDataDir();  // <exe_dir>/data
-    static QString defaultPrefsPath(); // <exe_dir>/VJVision_prefs.json (legacy fallback)
+    // Runtime data folder: portable <exe_dir>/data OR installed ~/Documents/VJVision_data
+    static QString defaultDataDir();
+    static QString defaultPrefsPath(); // <dataDir>/VJVision_prefs.json
 
     static Prefs load();       // missing/corrupt file → built-in defaults
     void save() const;

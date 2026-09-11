@@ -11,6 +11,8 @@
 #include <QString>
 #include <QUrl>
 #include <QVariantList>
+#include <QTimer>
+#include <QDateTime>
 #include <cstdio>
 
 namespace vj {
@@ -150,6 +152,23 @@ QtVizSink::~QtVizSink() {
 }
 
 bool QtVizSink::load(int screenIndex) {
+    screenIndex_ = screenIndex;
+    return recreateEngine();
+}
+
+bool QtVizSink::recreateEngine() {
+    constexpr const char* kTag = "[viz]";
+
+    // --- Tear down old engine cleanly ---
+    if (engine_) {
+        if (vizWindow_) {
+            vizWindow_->close();
+            vizWindow_ = nullptr;
+        }
+        delete engine_;  // destroys QML engine + all root objects
+        engine_ = nullptr;
+    }
+
     // Route QML console.log/debug onto stderr — the default Windows handler
     // only sends them to OutputDebugString, which a redirected log misses.
     qInstallMessageHandler([](QtMsgType type, const QMessageLogContext& ctx,
@@ -170,25 +189,37 @@ bool QtVizSink::load(int screenIndex) {
 
     const QUrl qmlUrl("qrc:/viz/qml/viz.qml");
     if (!QFile::exists(":/viz/qml/viz.qml")) {
-        fprintf(stderr, "[viz] QML resource missing in qrc — check viz.qrc prefix\n");
+        fprintf(stderr, "%s QML resource missing in qrc — check viz.qrc prefix\n", kTag);
     }
     engine_->load(qmlUrl);
     if (engine_->rootObjects().isEmpty()) {
-        fprintf(stderr, "[viz] failed to load QML (see [qml] lines above)\n");
+        fprintf(stderr, "%s failed to load QML (see [qml] lines above)\n", kTag);
         return false;
     }
+
     auto* window = qobject_cast<QQuickWindow*>(engine_->rootObjects().first());
     if (!window) {
-        fprintf(stderr, "[viz] root object is not a Window\n");
+        fprintf(stderr, "%s root object is not a Window\n", kTag);
         return false;
     }
-    // Start windowed (small window) so the user can drag it to any monitor
-    // and press F to fullscreen there. Windowed mode also lets the user
-    // resize to arbitrary aspect ratios for composition testing.
+    vizWindow_ = window;
+
+    // --- TDR recovery hook ---
+    // sceneGraphError fires on GPU context loss (TDR, driver crash, etc.)
+    // sceneGraphInvalidated is another path — we hook both.
+    QObject::connect(window, &QQuickWindow::sceneGraphError,
+                     this, &QtVizSink::onSceneGraphError);
+    QObject::connect(window, &QQuickWindow::sceneGraphInvalidated,
+                     this, [this]() {
+        fprintf(stderr, "[viz] sceneGraphInvalidated (context lost)\n");
+        scheduleRecovery();
+    });
+
+    // Position window — start windowed so user can drag + press F for fullscreen.
     const auto screens = QGuiApplication::screens();
     QScreen* targetScreen = QGuiApplication::primaryScreen();
-    if (screenIndex >= 0 && screenIndex < screens.size()) {
-        targetScreen = screens[screenIndex];
+    if (screenIndex_ >= 0 && screenIndex_ < screens.size()) {
+        targetScreen = screens[screenIndex_];
         window->setScreen(targetScreen);
     }
     window->resize(960, 540);
@@ -197,9 +228,73 @@ bool QtVizSink::load(int screenIndex) {
                         geo.center().y() - window->height() / 2);
     window->show();
     printf("[viz] windowed on screen %d (%s)\n",
-           screenIndex, window->screen() ? window->screen()->name().toUtf8().constData()
+           screenIndex_, window->screen() ? window->screen()->name().toUtf8().constData()
                                          : "default");
+
+    // --- Force-push ALL current state into the freshly-created QML ---
+    // The new QML objects are all defaults; re-emit every NOTIFY signal
+    // so QML bindings pick up the actual current values.
+    emit trackChanged();
+    emit binsChanged();
+    emit statusChanged();
+    emit standbyPathChanged();
+    emit bgVideoPathChanged();
+    emit standbyColorsChanged();
+    emit effectiveColorsChanged();
+    emit bgOverlayDepthChanged();
+    emit bgColorChanged();
+    emit vizModeChanged();
+    emit logoSizeStandbyChanged();
+    emit logoSizePlayingChanged();
+
     return true;
+}
+
+void QtVizSink::onSceneGraphError(int error, const QString& msg) {
+    // QQuickWindow::SceneGraphError enum values:
+    //   ContextNotAvailable / ContextLost = GPU side (TDR, driver reset)
+    //   SceneGraphInitFailed / RenderLoopFailed = less common
+    fprintf(stderr, "[viz] sceneGraphError: code=%d msg='%s'\n",
+            error, msg.toUtf8().constData());
+    scheduleRecovery();
+}
+
+void QtVizSink::scheduleRecovery() {
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+
+    // Throttle: if we recovered recently, or are in a crash loop, give up
+    if (now - lastRecoveryMs_ < kMinRecoveryIntervalMs) {
+        fprintf(stderr, "[viz] recovery throttled (last=%lldms ago)\n",
+                (long long)(now - lastRecoveryMs_));
+        return;
+    }
+    if (recoveryAttempts_ >= kMaxRecoveryAttempts) {
+        fprintf(stderr, "[viz] recovery FAILED after %d attempts — giving up. "
+                        "Please restart the application.\n", kMaxRecoveryAttempts);
+        emit gpuRecoveryFailed();
+        recoveryAttempts_ = 0;  // reset counter so next session can retry
+        return;
+    }
+
+    recoveryAttempts_++;
+    lastRecoveryMs_ = now;
+    fprintf(stderr, "[viz] GPU device lost — recovery attempt %d/%d (delay=%dms)\n",
+            recoveryAttempts_, kMaxRecoveryAttempts, kRecoveryDelayMs);
+
+    // Schedule recovery on the next event loop iteration after a short pause.
+    // This lets Qt clean up the dead scene graph first.
+    QTimer::singleShot(kRecoveryDelayMs, this, [this]() {
+        bool ok = recreateEngine();
+        if (ok) {
+            fprintf(stderr, "[viz] ✅ GPU recovery succeeded (attempt %d)\n",
+                    recoveryAttempts_);
+            emit gpuRecovered(recoveryAttempts_);
+            recoveryAttempts_ = 0;  // reset after a successful recovery
+        } else {
+            fprintf(stderr, "[viz] ❌ recreateEngine() failed after TDR\n");
+            emit gpuRecoveryFailed();
+        }
+    });
 }
 
 void QtVizSink::requestClose() { emit closeRequested(); }

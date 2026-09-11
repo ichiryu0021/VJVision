@@ -5,17 +5,47 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStandardPaths>
 
 namespace vj {
 
 // Single source of truth for ALL runtime data — prefs + DB + covers.
-// Everything lives under <exe_dir>/data/. No legacy paths, no migration.
+//
+// Location is picked at runtime by probing whether the exe folder is writable:
+//   • Portable (ZIP on a normal folder / USB stick) → <exe_dir>/data/
+//     so the whole app + data travel together.
+//   • Installed under a read-only location (C:\Program Files) →
+//     ~/Documents/VJVision_data/, where every user can find it easily.
 QString Prefs::defaultDataDir() {
-    QDir dir(QCoreApplication::applicationDirPath());
-    QString data = dir.filePath(QStringLiteral("data"));
-    if (!QDir(data).exists()) {
-        QDir().mkpath(data);
+    const QString exeDir = QCoreApplication::applicationDirPath();
+
+    // Write probe next to the exe. Program Files is read-only for a
+    // non-elevated process, so this fails for the installed edition and
+    // succeeds for a portable copy.
+    bool exeWritable = false;
+    {
+        const QString probe = QDir(exeDir).filePath(QStringLiteral(".vj_write_probe.tmp"));
+        QFile f(probe);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            f.close();
+            f.remove();
+            exeWritable = true;
+        }
     }
+
+    QString data;
+    if (exeWritable) {
+        // Portable mode: keep data beside the exe.
+        data = QDir(exeDir).filePath(QStringLiteral("data"));
+    } else {
+        // Installed mode: user data goes under Documents (easy to find).
+        const QString docs =
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+        data = QDir(docs).filePath(QStringLiteral("VJVision_data"));
+    }
+
+    if (!QDir(data).exists())
+        QDir().mkpath(data);
     return data;
 }
 
@@ -25,7 +55,7 @@ QString Prefs::defaultPrefsPath() {
 }
 
 QString Prefs::dbPath() const {
-    QDir dir(defaultDataDir());   // always <exe_dir>/data, never stale dataDir
+    QDir dir(defaultDataDir());   // resolved fresh each call (portable vs installed)
     return dir.filePath(QStringLiteral("VJVision.db"));
 }
 
@@ -71,7 +101,8 @@ void Prefs::save() const {
     m["confirmFrames"] = match.confirmFrames;
 
     QJsonObject o;
-    // dataDir intentionally NOT saved — always resolved to <exe_dir>/data at runtime
+    // dataDir intentionally NOT saved — resolved at runtime (portable exe/data
+    // vs installed Documents/VJVision_data) via defaultDataDir().
     o["musicDir"] = musicDir;
     o["deviceIdx"] = deviceIdx;
     o["standbyPath"] = standbyPath;

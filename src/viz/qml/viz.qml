@@ -381,6 +381,11 @@ Window {
             renderStrategy: Canvas.Immediate
             opacity: mx.bgVideoPath === "" ? 1.0 : 0.6
 
+            // Half-resolution buffer — GPU upscales to full item size.
+            // CPU 2D rasterization cost cut ~4x (half width × half height).
+            canvasSize: Qt.size(Math.max(1, Math.floor(width/2)),
+                                Math.max(1, Math.floor(height/2)))
+
             // Persistent lerp state — survives across onPaint calls.
             // 9-element flat RGB: [r0,g0,b0, r1,g1,b1, r2,g2,b2]
             property var curRgb: [80, 80, 120, 80, 80, 120, 80, 80, 120]
@@ -388,11 +393,12 @@ Window {
             // Lerp factor: smaller → slower color fade transition
             property real fadeLerp: 0.06
 
-            // Timer-driven repaint (60fps). requestPaint self-trigger can
+            // Timer-driven repaint (30fps). requestPaint self-trigger can
             // stall on some platforms — explicit Timer is reliable.
+            // Ambient waves barely differ at 30fps; halves CPU load.
             Timer {
                 id: rippleTimer
-                interval: 16
+                interval: 33
                 repeat: true
                 running: true
                 onTriggered: ripple.requestPaint()
@@ -400,7 +406,7 @@ Window {
 
             onPaint: {
                 var ctx = getContext("2d")
-                var w = width, h = height
+                var w = canvasSize.width, h = canvasSize.height
                 ctx.reset()
 
                 // Absolute time — keeps wave motion continuous even when
@@ -459,7 +465,7 @@ Window {
                     ctx.moveTo(0, h)
                     ctx.lineTo(0, yOffArr[li])
 
-                    for (var x = 0; x <= w; x += 3) {
+                    for (var x = 0; x <= w; x += 5) {
                         var y = yOffArr[li] + waveforms[li](x, t, li) * ampArr[li]
                         ctx.lineTo(x, y)
                     }
