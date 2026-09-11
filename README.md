@@ -20,12 +20,8 @@
 
 ### 💖 支持项目 / Support
 
-如果 VJVision 帮到了你，欢迎赞赏或 Sponsor，让项目持续迭代。
+如果 VJVision 帮到了你，欢迎赞赏支持，让项目持续迭代。
 <br>*If VJVision has helped you, consider sponsoring to keep it evolving.*
-
-[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on%20GitHub-ichiryu0021-pink?logo=github)](https://github.com/sponsors/ichiryu0021)
-
-<br>
 
 <img src="docs/sponsor-wechat.png" alt="微信赞赏码" width="220">
 <br>
