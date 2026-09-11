@@ -32,7 +32,16 @@ public:
     // Select device: -1 = default render endpoint (system loopback).
     // Does not block; actual open happens on the capture thread so that
     // missing devices can be retried.
+    // NOTE: the enumeration index is volatile (reorders on plug/unplug);
+    // GUI/persisted selections should prefer openEndpoint() with the
+    // stable WASAPI endpoint id from DeviceInfo::id.
     bool open(int index);
+
+    // Select device by stable WASAPI endpoint id (DeviceInfo::id).
+    // Empty id = default render endpoint (system loopback). The id is
+    // resolved on the capture thread; if it has vanished the capture
+    // falls back to the default render loopback and keeps retrying.
+    bool openEndpoint(const std::wstring& endpointId);
 
     bool start(RingBuffer* ring);
     void stop();
@@ -55,6 +64,8 @@ private:
     bool runOnce();
 
     int wantedIndex_ = -1;
+    std::wstring wantedId_;   // stable endpoint id (used when selectById_)
+    bool selectById_ = false; // true = openEndpoint(), false = open(index)
     RingBuffer* ring_ = nullptr;
     std::thread thread_;
     std::atomic<bool> running_{false};

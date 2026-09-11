@@ -70,6 +70,7 @@ Prefs Prefs::load() {
             const auto o = doc.object();
             p.musicDir = o.value("musicDir").toString();
             p.deviceIdx = (int)o.value("deviceIdx").toDouble(p.deviceIdx);
+            p.deviceId = o.value("deviceId").toString();
             p.standbyPath = o.value("standbyPath").toString();
             p.bgVideoPath = o.value("bgVideoPath").toString();
             p.bgMode = (int)o.value("bgMode").toDouble(0);
@@ -90,7 +91,7 @@ Prefs Prefs::load() {
             }
             if (p.bgMode != 0 && p.bgMode != 1) p.bgMode = 0;
             if (p.fxTexture < -1 || p.fxTexture > 2) p.fxTexture = -1;
-            p.prefsVersion = 2;
+            p.prefsVersion = 3;
             p.performanceMode = (int)o.value("performanceMode").toDouble(0);
             p.bgOverlayDepth = (float)o.value("bgOverlayDepth").toDouble(p.bgOverlayDepth);
             p.bgColor = o.value("bgColor").toString();
@@ -102,28 +103,20 @@ Prefs Prefs::load() {
             if (p.logoSizeStandby < 0.3f || p.logoSizeStandby > 1.5f) p.logoSizeStandby = 1.0f;
             if (p.logoSizePlaying < 0.05f || p.logoSizePlaying > 0.8f) p.logoSizePlaying = 0.30f;
 
-            const auto m = o.value("match").toObject();
-            p.match.noiseFloor = (float)m.value("noiseFloor").toDouble(p.match.noiseFloor);
-            p.match.firstTrackAccept = (float)m.value("firstTrackAccept").toDouble(p.match.firstTrackAccept);
-            p.match.switchAccept = (float)m.value("switchAccept").toDouble(p.match.switchAccept);
-            p.match.confirmFrames = (int)m.value("confirmFrames").toDouble(p.match.confirmFrames);
+            // 电量产品不暴露识别阈值；开源置信引擎使用编译期默认。
+            // 旧版本写入的 "match" 键存在时忽略。
         }
     }
     return p;
 }
 
 void Prefs::save() const {
-    QJsonObject m;
-    m["noiseFloor"] = match.noiseFloor;
-    m["firstTrackAccept"] = match.firstTrackAccept;
-    m["switchAccept"] = match.switchAccept;
-    m["confirmFrames"] = match.confirmFrames;
-
     QJsonObject o;
     // dataDir intentionally NOT saved — resolved at runtime (portable exe/data
     // vs installed Documents/VJVision_data) via defaultDataDir().
     o["musicDir"] = musicDir;
     o["deviceIdx"] = deviceIdx;
+    o["deviceId"] = deviceId;
     o["standbyPath"] = standbyPath;
     o["bgVideoPath"] = bgVideoPath;
     o["bgMode"] = bgMode;
@@ -136,7 +129,6 @@ void Prefs::save() const {
     o["vizMode"] = vizMode;
     o["logoSizeStandby"] = logoSizeStandby;
     o["logoSizePlaying"] = logoSizePlaying;
-    o["match"] = m;
 
     QString path = defaultPrefsPath();
     QFileInfo fi(path);

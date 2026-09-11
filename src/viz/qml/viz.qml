@@ -15,6 +15,7 @@ Window {
     minimumHeight: 240
 
     Component.onCompleted: {
+        if (root._mock) root.commitTrack()  // static mock → show sample track
         console.log("[viz.qml] mx.bgColor =", mx.bgColor,
                     "mx.bgOverlayDepth =", mx.bgOverlayDepth,
                     "mx.bgVideoPath =", mx.bgVideoPath,
@@ -57,7 +58,9 @@ Window {
         readonly property string artistText: root._mock ? "fripSide" : viz.artist
         readonly property string albumText: root._mock ? "Decade" : viz.album
         readonly property string coverPath: root._mock ? "" : viz.coverPath
-        readonly property bool tentative: root._mock ? false : viz.tentative
+        // Note: tentative candidate / mixing status intentionally has NO
+        // visual representation — display holds the previous confirmed song
+        // and the state is reported in console/log only.
         readonly property real peak: root._mock ? root._mockPeak : viz.peak
         readonly property real beat: root._mock ? 0 : viz.beat
         readonly property var bins: root._mock ? root._mockBins : viz.bins
@@ -365,6 +368,79 @@ Window {
             }
         }
     }
+    // ---------- Song-switch crossfade (restored V1 behavior) ----------
+    // Cover/text bind to disp* (the committed on-screen snapshot), NOT to
+    // mx.* directly. When a DIFFERENT track arrives mid-playback (a
+    // tentative candidate during a DJ mix, or a confirmed song switch —
+    // hasTrack stays true for both), swapSeq fades the info layer out,
+    // commits the new snapshot at opacity 0, then fades it back in
+    // (~1.25 s, out → blank beat → in). The standby
+    // reveal and silence→track paths still go through fadeInSeq above.
+    // Background ripple colors morph independently via their own persistent
+    // RGB lerp (see ripple Canvas) — only the COLOR crossfades.
+    property string dispTitle: ""
+    property string dispArtist: ""
+    property string dispAlbum: ""
+    property string dispCoverPath: ""
+    property string trackKey: ""             // identity of the committed shot
+    property real infoFadeOpacity: 1.0       // swapSeq drives this
+    // Hue of the committed snapshot — colors the no-cover placeholder.
+    property int dispTrackHue: {
+        var h = 0
+        for (var i = 0; i < dispTitle.length; ++i)
+            h = (h * 31 + dispTitle.charCodeAt(i)) % 360
+        return dispTitle.length > 0 ? h : 210
+    }
+
+    function currentTrackKey() {
+        return mx.titleText + "|" + mx.artistText + "|" + mx.coverPath
+    }
+    function commitTrack() {
+        root.dispTitle = mx.titleText
+        root.dispArtist = mx.artistText
+        root.dispAlbum = mx.albumText
+        root.dispCoverPath = mx.coverPath
+        root.trackKey = root.currentTrackKey()
+    }
+    function handleTrackDataChanged() {
+        if (!mx.hasTrack || swapSeq.running) return
+        var k = root.currentTrackKey()
+        if (k === root.trackKey) return        // repeated tick, same song
+        if (root.contentProgress < 0.5) {
+            // Standby / silence reveal already owns the visible transition
+            // — content is (nearly) invisible, swap directly.
+            root.infoFadeOpacity = 1
+            root.commitTrack()
+            return
+        }
+        swapSeq.start()                        // genuine mid-song switch
+    }
+
+    // Fade old song out → hold at zero (swap snapshot here) → fade new song
+    // in. Total ~1.25 s; InOutSine throughout for a smooth cross-fade feel.
+    SequentialAnimation {
+        id: swapSeq
+        NumberAnimation {
+            target: root; property: "infoFadeOpacity"
+            from: 1; to: 0; duration: 500
+            easing.type: Easing.InOutSine
+        }
+        PauseAnimation { duration: 60 }    // brief blank beat, content swaps
+        ScriptAction { script: root.commitTrack() }
+        NumberAnimation {
+            target: root; property: "infoFadeOpacity"
+            from: 0; to: 1; duration: 600
+            easing.type: Easing.InOutSine
+        }
+        onFinished: {
+            root.infoFadeOpacity = 1
+            // A newer candidate may have arrived while we faded — catch up
+            // instead of getting stuck on the song committed at midpoint.
+            if (mx.hasTrack && root.currentTrackKey() !== root.trackKey)
+                swapSeq.start()
+        }
+    }
+
     Connections {
         target: mx
         function onHasTrackChanged() {
@@ -375,11 +451,20 @@ Window {
                 root.contentProgress = 0
                 root.standbySizeAnim = root.standbySizeStandbyRatio
                 root.standbyYAnim = root.standbyYStandbyRatio
+                // Commit the song directly: the delayed content fade-in owns
+                // this transition, so no switch crossfade on top of it.
+                swapSeq.stop()
+                root.infoFadeOpacity = 1
+                root.commitTrack()
                 fadeInSeq.start()
             } else {
                 fadeOutSeq.start()
             }
         }
+        // Mid-playback track data change (hasTrack stays true) → crossfade.
+        function onTitleTextChanged() { root.handleTrackDataChanged() }
+        function onArtistTextChanged() { root.handleTrackDataChanged() }
+        function onCoverPathChanged() { root.handleTrackDataChanged() }
     }
 
     // Escape returns to the control panel (session stop is owned by
@@ -1076,6 +1161,14 @@ Window {
         Behavior on opacity { NumberAnimation { duration: 400 } }
         anchors.fill: parent
 
+        // Switch-crossfade layer: swapSeq animates THIS layer's opacity
+        // (fade old song → commit new snapshot at zero → fade new in),
+        // while the parent `info` keeps the standby fade (contentProgress).
+        Item {
+            id: infoFade
+            anchors.fill: parent
+            opacity: root.infoFadeOpacity
+
         // circular cover. NB: plain x/y bindings only.
         Item {
             id: coverHolder
@@ -1096,8 +1189,8 @@ Window {
                 id: coverCircle
                 anchors.fill: parent
                 radius: width / 2
-                color: mx.coverPath === ""
-                     ? Qt.hsla(root.trackHue / 360, 0.55, 0.35, 1)
+                color: root.dispCoverPath === ""
+                     ? Qt.hsla(root.dispTrackHue / 360, 0.55, 0.35, 1)
                      : "transparent"
 
                 Text {
@@ -1105,14 +1198,14 @@ Window {
                     text: "♪"
                     font.pixelSize: coverHolder.width * 0.45
                     color: "#e8eeff"
-                    visible: mx.coverPath === ""
+                    visible: root.dispCoverPath === ""
                 }
                 Image {
                     id: coverImage
                     anchors.fill: parent
-                    source: mx.coverPath
+                    source: root.dispCoverPath
                     fillMode: Image.PreserveAspectCrop
-                    visible: mx.coverPath !== ""
+                    visible: root.dispCoverPath !== ""
                     asynchronous: true
                     cache: false
                     layer.enabled: true
@@ -1126,7 +1219,7 @@ Window {
                     NumberAnimation on rotation {
                         from: 0; to: 360; duration: 4000
                         loops: Animation.Infinite
-                        running: mx.coverPath !== ""
+                        running: root.dispCoverPath !== ""
                     }
                 }
             }
@@ -1153,7 +1246,7 @@ Window {
             Text {
                 width: textBlock.width
                 horizontalAlignment: root.landscape ? Text.AlignLeft : Text.AlignHCenter
-                text: mx.titleText
+                text: root.dispTitle
                 font { family: "Microsoft YaHei"; pixelSize: root.landscape ? root.vmin * 0.055 : root.vmin * 0.08; bold: true }
                 color: "#ffffff"
                 elide: Text.ElideRight
@@ -1161,7 +1254,7 @@ Window {
             Text {
                 width: textBlock.width
                 horizontalAlignment: root.landscape ? Text.AlignLeft : Text.AlignHCenter
-                text: mx.artistText !== "" ? mx.artistText : "未知艺术家"
+                text: root.dispArtist !== "" ? root.dispArtist : "未知艺术家"
                 font { family: "Microsoft YaHei"; pixelSize: root.landscape ? root.vmin * 0.028 : root.vmin * 0.04 }
                 color: "#a9b6e8"
                 elide: Text.ElideRight
@@ -1169,12 +1262,20 @@ Window {
             Text {
                 width: textBlock.width
                 horizontalAlignment: root.landscape ? Text.AlignLeft : Text.AlignHCenter
-                text: "♫ " + (mx.albumText !== "" ? mx.albumText : "")
+                // Album line ONLY — never show a "识别中…/Recognizing…"
+                // status string here (removed twice, do not re-add).
+                text: "♫ " + (root.dispAlbum !== "" ? root.dispAlbum : "")
                 font { family: "Microsoft YaHei"; pixelSize: root.landscape ? root.vmin * 0.020 : root.vmin * 0.03 }
                 color: "#6b76a8"
-                visible: mx.albumText !== ""
+                visible: root.dispAlbum !== ""
             }
+
+            // No visual feedback for tentative pulse candidates / DJ-mix
+            // phases: the display stays on the confirmed previous song and
+            // only updates (with the cross-fade) once a switch is CONFIRMED.
+            // Candidate/mix state is reported in the console/log only.
         }
+        } // ← end of infoFade (switch-crossfade layer)
     }
 
     // ---------- Standby image (alpha / gif) ----------

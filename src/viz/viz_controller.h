@@ -9,7 +9,7 @@
 // changed live via setMatchParams() while a session is running.
 #pragma once
 #include "viz_events.h"
-#include "../engine/match_engine.h"
+#include "../engine/i_match_engine.h"
 
 #include <QObject>
 #include <atomic>
@@ -32,8 +32,9 @@ public:
     // Creates the QML windowed-on-screen-and-user-can-drag-then-F-fullscreen
     // and starts capture/recognition. Must be called on the GUI thread.
     // dbPath may be empty — viz still runs (shows only standby), no track matching.
+    // deviceId is the stable WASAPI endpoint id; empty = default render loopback.
     // Returns false only on QML load failure or if a session is already running.
-    bool start(const std::string& dbPath, int deviceIndex);
+    bool start(const std::string& dbPath, const std::wstring& deviceId);
 
     // Signals the worker to stop and joins it, tears down the QML window
     // and IPC. Idempotent; safe to call from closeEvent.
@@ -66,9 +67,13 @@ signals:
     void logMessage(QString line);
     void sessionStarted();
     void sessionStopped();
+    // DEBUG 电量观察窗：每拍从 worker 发出（queued 到 GUI 线程）。
+    // ev = MatchEvent 序号；curId<0 表示空槽。
+    void chargeUpdate(int curId, int curBar, int candId, int candBar,
+                      int ev, double conf);
 
 private:
-    void workerFunc(std::string dbPath, int deviceIndex);
+    void workerFunc(std::string dbPath, std::wstring deviceId);
 
     std::atomic<bool> running_{false};
     std::thread worker_;

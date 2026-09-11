@@ -28,6 +28,9 @@ struct FpResult {
     float inputConfidence = 0.f;
     double offsetSec = 0.0;
     int queryHashes = 0;
+    int alignedVotes = 0;   // votes in the best (song, delta) histogram bin
+    double sliceSec = 0.0;  // length of the tail sub-window that produced it
+    bool localAgc = false;  // produced by the short tail pass with its own AGC
 };
 
 // Dejavu-tuned parameters (from VJVision fingerprint.py _optimize_dejavu_params).

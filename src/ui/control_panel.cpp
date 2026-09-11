@@ -1,5 +1,7 @@
 #include "control_panel.h"
 
+#include <cstdio>
+
 #include "../audio/wasapi_capture.h"
 #include "../engine/indexer.h"
 #include "../fp/fp_db.h"
@@ -10,7 +12,6 @@
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDir>
-#include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -81,12 +82,10 @@ const char* tr2(const QString& lang, const char* key) {
         {"logoStandby",    "待机 Logo 大小",               "Standby logo size"},
         {"logoPlaying",    "播放 Logo 大小",               "Playing logo size"},
         {"resetSize",      "默认",                         "Default"},
-        {"grpThr",         "识别阈值（即时生效）",         "Recognition thresholds (live)"},
-        {"noise",          "噪声下限",                     "Noise floor"},
-        {"first",          "首曲确认",                     "First-track accept"},
-        {"switch",         "切歌确认",                     "Switch accept"},
-        {"confirm",        "确认次数",                     "Confirm frames"},
-        {"resetDefault",   "恢复默认",                     "Reset defaults"},
+        {"grpCharge",      "电量状态",                     "Charge state"},
+        {"chgSlot",        "槽位",                         "Slot"},
+        {"chgCand",        "候选",                         "Candidate"},
+        {"chgEvent",       "事件",                         "Event"},
         {"grpRun",         "运行",                         "Run"},
         {"startViz",       "启动可视化",                   "Start visualizer"},
         {"stopViz",        "停止可视化",                   "Stop visualizer"},
@@ -124,6 +123,8 @@ ControlPanel::ControlPanel(QWidget* parent) : QWidget(parent) {
             this, &ControlPanel::appendLog);
     connect(controller_.get(), &VizController::sessionStopped,
             this, &ControlPanel::onSessionStopped);
+    connect(controller_.get(), &VizController::chargeUpdate,
+            this, &ControlPanel::onChargeUpdate, Qt::QueuedConnection);
 
     levelTimer_ = new QTimer(this);
     connect(levelTimer_, &QTimer::timeout, this, [this] {
@@ -164,6 +165,13 @@ void ControlPanel::buildUi() {
     auto* audioForm = new QFormLayout(grpAudio_);
     auto* devRow = new QHBoxLayout();
     deviceCombo_ = new QComboBox;
+    // Persist the stable endpoint id immediately on manual selection.
+    // The combo is disabled while a session is running.
+    connect(deviceCombo_, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this](int) {
+        if (controller_ && controller_->isRunning()) return;
+        syncPrefs();
+    });
     refreshDevBtn_ = new QPushButton;
     connect(refreshDevBtn_, &QPushButton::clicked, this, [this] {
         refreshDevices();
@@ -442,48 +450,34 @@ void ControlPanel::buildUi() {
     updateBgRowForMode(bgModeCombo->currentData().toInt());
     root->addWidget(grpVisual_);
 
-    // --- Thresholds ------------------------------------------------------
-    grpThr_ = new QGroupBox;
-    auto* thrForm = new QFormLayout(grpThr_);
-    auto makeSpin = [](double v) {
-        auto* s = new QDoubleSpinBox;
-        s->setRange(0.05, 0.95);
-        s->setSingleStep(0.01);
-        s->setDecimals(2);
-        s->setValue(v);
-        return s;
-    };
-    noiseSpin_ = makeSpin(0.13);
-    firstSpin_ = makeSpin(0.25);
-    switchSpin_ = makeSpin(0.30);
-    confirmSpin_ = new QSpinBox;
-    confirmSpin_->setRange(1, 5);
-    confirmSpin_->setValue(1);
-    thrForm->addRow(lbl("noise"), noiseSpin_);
-    thrForm->addRow(lbl("first"), firstSpin_);
-    thrForm->addRow(lbl("switch"), switchSpin_);
-    thrForm->addRow(lbl("confirm"), confirmSpin_);
-    // Reset-to-default button
-    auto* resetRow = new QHBoxLayout;
-    resetRow->addStretch();
-    auto* resetBtn = new QPushButton;
-    resetBtn->setText(t("resetDefault"));
-    connect(resetBtn, &QPushButton::clicked, this, [this] {
-        noiseSpin_->setValue(0.13);
-        firstSpin_->setValue(0.25);
-        switchSpin_->setValue(0.30);
-        confirmSpin_->setValue(1);
-        syncPrefs();
-    });
-    resetRow->addWidget(resetBtn);
-    thrForm->addRow(resetRow);
-    for (auto* w : {noiseSpin_, firstSpin_, switchSpin_}) {
-        connect(w, qOverload<double>(&QDoubleSpinBox::valueChanged),
-                this, [this] { syncPrefs(); });
-    }
-    connect(confirmSpin_, qOverload<int>(&QSpinBox::valueChanged),
-            this, [this] { syncPrefs(); });
-    root->addWidget(grpThr_);
+#ifdef VJVISION_CHARGE_ENGINE
+    // --- 电量状态（常驻，专有电量引擎；开源置信构建无此组） ---
+    grpCharge_ = new QGroupBox;
+    auto* chargeForm = new QFormLayout(grpCharge_);
+    slotBar_ = new QProgressBar;
+    slotBar_->setRange(0, 10);
+    slotBar_->setFormat(QStringLiteral("%v/10"));
+    slotIdLbl_ = new QLabel("id=-");
+    slotIdLbl_->setMinimumWidth(56);
+    auto* slotRow = new QHBoxLayout;
+    slotRow->addWidget(slotBar_, 1);
+    slotRow->addWidget(slotIdLbl_);
+    chargeForm->addRow(lbl("chgSlot"), slotRow);
+
+    candBar_ = new QProgressBar;
+    candBar_->setRange(0, 10);
+    candBar_->setFormat(QStringLiteral("%v/10"));
+    candIdLbl_ = new QLabel("id=-");
+    candIdLbl_->setMinimumWidth(56);
+    auto* candRow = new QHBoxLayout;
+    candRow->addWidget(candBar_, 1);
+    candRow->addWidget(candIdLbl_);
+    chargeForm->addRow(lbl("chgCand"), candRow);
+
+    chargeEvLbl_ = new QLabel(QStringLiteral("-"));
+    chargeForm->addRow(lbl("chgEvent"), chargeEvLbl_);
+    root->addWidget(grpCharge_);
+#endif
 
     // --- Run -------------------------------------------------------------
     grpRun_ = new QGroupBox;
@@ -507,7 +501,10 @@ void ControlPanel::buildUi() {
     root->addWidget(grpRun_);
 
     // --- Log -------------------------------------------------------------
-    root->addWidget(lbl("log"));
+    auto* logHead = new QHBoxLayout;
+    logHead->addWidget(lbl("log"));
+    logHead->addStretch();
+    root->addLayout(logHead);
     logView_ = new QPlainTextEdit;
     logView_->setReadOnly(true);
     logView_->setMaximumBlockCount(2000);
@@ -520,7 +517,9 @@ void ControlPanel::retranslate() {
     grpAudio_->setTitle(t("grpAudio"));
     grpLib_->setTitle(t("grpLib"));
     grpVisual_->setTitle(t("grpVisual"));
-    grpThr_->setTitle(t("grpThr"));
+#ifdef VJVISION_CHARGE_ENGINE
+    grpCharge_->setTitle(t("grpCharge"));
+#endif
     grpRun_->setTitle(t("grpRun"));
     refreshDevBtn_->setText(t("refresh"));
     browseDirBtn_->setText(t("browse"));
@@ -569,10 +568,6 @@ void ControlPanel::loadPrefsToUi() {
     perfModeCombo_->setCurrentIndex(prefs_.performanceMode);
     overlaySlider_->setValue(int(qBound(0.f, prefs_.bgOverlayDepth, 1.f) * 100.f));
     overlayLabel_->setText(QStringLiteral("%1%").arg(overlaySlider_->value()));
-    noiseSpin_->setValue(prefs_.match.noiseFloor);
-    firstSpin_->setValue(prefs_.match.firstTrackAccept);
-    switchSpin_->setValue(prefs_.match.switchAccept);
-    confirmSpin_->setValue(prefs_.match.confirmFrames);
     vizModeCombo_->setCurrentIndex(prefs_.vizMode);
     logoStandbySlider_->blockSignals(true);
     logoStandbySlider_->setValue(int(prefs_.logoSizeStandby * 100));
@@ -594,12 +589,12 @@ void ControlPanel::syncPrefs() {
     prefs_.fxTexture = fxTextureCombo_->currentData().toInt(); // data: -1=off, 0/1/2 textures
     prefs_.performanceMode = perfModeCombo_->currentIndex();
     prefs_.bgVideoPath = bgVideoEdit_->text().trimmed();
-    prefs_.deviceIdx = deviceCombo_->currentIndex() > 0
-                           ? deviceCombo_->currentData().toInt() : -1;
-    prefs_.match.noiseFloor = (float)noiseSpin_->value();
-    prefs_.match.firstTrackAccept = (float)firstSpin_->value();
-    prefs_.match.switchAccept = (float)switchSpin_->value();
-    prefs_.match.confirmFrames = confirmSpin_->value();
+    {
+        const int ci = deviceCombo_->currentIndex();
+        prefs_.deviceIdx = ci > 0 ? deviceCombo_->currentData().toInt() : -1;
+        prefs_.deviceId = ci > 0
+            ? deviceCombo_->currentData(Qt::UserRole + 1).toString() : QString();
+    }
     prefs_.bgColor = bgColorBtn_->property("color").toString();
     prefs_.vizMode = vizModeCombo_->currentIndex();
     prefs_.logoSizeStandby = logoStandbySlider_->value() / 100.0f;
@@ -628,22 +623,61 @@ void ControlPanel::syncPrefs() {
 }
 
 void ControlPanel::refreshDevices() {
-    const int saved = prefs_.deviceIdx;
     deviceCombo_->blockSignals(true);
     deviceCombo_->clear();
+    // Row 0 = default. UserRole = volatile enumeration index,
+    // UserRole+1 = stable WASAPI endpoint id.
     deviceCombo_->addItem(QStringLiteral("Default (system loopback)"), -1);
+    deviceCombo_->setItemData(0, QString(), Qt::UserRole + 1);
+
+    const auto devices = WasapiCapture::listDevices();
     int selectIdx = 0;
-    int i = 0;
-    for (const auto& d : WasapiCapture::listDevices()) {
+    bool found = (prefs_.deviceIdx < 0);   // saved default → row 0
+    int legacyRow = -1;                    // pre-deviceId configs: migrate by index
+    for (int i = 0; i < (int)devices.size(); ++i) {
+        const auto& d = devices[i];
         const QString name = QString::fromWCharArray(d.name.c_str());
+        const QString id = QString::fromWCharArray(d.id.c_str());
         const QString tag = d.isLoopback ? QStringLiteral("[loopback] ")
                                          : QStringLiteral("[input] ");
+        const int row = i + 1;
         deviceCombo_->addItem(tag + name, d.index);
-        if (d.index == saved) selectIdx = i;
-        ++i;
+        deviceCombo_->setItemData(row, id, Qt::UserRole + 1);
+        if (!prefs_.deviceId.isEmpty() && id == prefs_.deviceId) {
+            selectIdx = row;
+            found = true;
+        }
+        if (prefs_.deviceId.isEmpty() && prefs_.deviceIdx == d.index)
+            legacyRow = row;
+    }
+
+    if (!found) {
+        if (legacyRow >= 0) {
+            // One-time migration: old config stored only an index.
+            selectIdx = legacyRow;
+            found = true;
+        } else if (prefs_.deviceIdx >= 0 || !prefs_.deviceId.isEmpty()) {
+            // Saved endpoint unavailable (unplugged/disabled/reordered) →
+            // fall back to the system default loopback.
+            fprintf(stderr,
+                    "[ui] saved audio device unavailable — falling back to default loopback.\n");
+            selectIdx = 0;
+        }
     }
     deviceCombo_->setCurrentIndex(selectIdx);
     deviceCombo_->blockSignals(false);
+
+    // Persist the resolved selection (migration captures the endpoint id;
+    // fallback resets the stale selection) so prefs match what will start.
+    const int resolvedIdx = selectIdx > 0
+        ? deviceCombo_->itemData(selectIdx).toInt() : -1;
+    const QString resolvedId = selectIdx > 0
+        ? deviceCombo_->itemData(selectIdx, Qt::UserRole + 1).toString() : QString();
+    if (resolvedIdx != prefs_.deviceIdx || resolvedId != prefs_.deviceId) {
+        prefs_.deviceIdx = resolvedIdx;
+        prefs_.deviceId = resolvedId;
+        prefs_.save();
+    }
 }
 
 void ControlPanel::refreshSongCount() {
@@ -826,7 +860,8 @@ void ControlPanel::toggleViz() {
         appendLog(t("noDb"));
     }
     const std::string dbStr = db.toStdString();
-    const bool ok = controller_->start(dbStr, prefs_.deviceIdx);
+    const std::wstring deviceId = prefs_.deviceId.toStdWString();
+    const bool ok = controller_->start(dbStr, deviceId);
     if (ok) {
         vizBtn_->setText(t("stopViz"));
         deviceCombo_->setEnabled(false);
@@ -864,10 +899,44 @@ void ControlPanel::onSessionStopped() {
     retranslate();   // picks correct startViz text
     deviceCombo_->setEnabled(true);
     levelBar_->setValue(0);
+#ifdef VJVISION_CHARGE_ENGINE
+    if (slotBar_) {
+        slotBar_->setValue(0);
+        candBar_->setValue(0);
+        slotIdLbl_->setText(QStringLiteral("空槽"));
+        candIdLbl_->setText(QStringLiteral("-"));
+        chargeEvLbl_->setText(QStringLiteral("-"));
+    }
+#endif
 }
 
 void ControlPanel::appendLog(const QString& line) {
     logView_->appendPlainText(line);
+}
+
+// 常驻引擎状态：进度范围由专有构建中的引擎常量定义。
+void ControlPanel::onChargeUpdate(int curId, int curBar, int candId,
+                                  int candBar, int ev, double conf) {
+#ifdef VJVISION_CHARGE_ENGINE
+    if (!slotBar_) return;
+    slotBar_->setValue(qBound(0, curBar, 10));
+    candBar_->setValue(qBound(0, candBar, 10));
+    slotIdLbl_->setText(curId >= 0
+                            ? QStringLiteral("id=%1").arg(curId)
+                            : QStringLiteral("空槽"));
+    candIdLbl_->setText(candId >= 0
+                            ? QStringLiteral("id=%1").arg(candId)
+                            : QStringLiteral("-"));
+    static const char* kEv[] = {"None", "Confirmed", "NoMatch", "Noise",
+                                "Tentative", "MixHold"};
+    const char* evName = (ev >= 0 && ev <= 5) ? kEv[ev] : "?";
+    chargeEvLbl_->setText(QStringLiteral("%1  conf=%2")
+                              .arg(QString::fromUtf8(evName))
+                              .arg(conf, 0, 'f', 3));
+#else
+    (void)curId; (void)curBar; (void)candId; (void)candBar;
+    (void)ev; (void)conf;
+#endif
 }
 
 void ControlPanel::closeEvent(QCloseEvent* e) {

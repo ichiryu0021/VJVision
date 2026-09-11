@@ -42,6 +42,7 @@ FpResult alignMatches(const std::vector<Fingerprint>& query,
     if (bestSong < 0) return result;
 
     result.songId = bestSong;
+    result.alignedVotes = bestVotes;
     result.inputConfidence = (float)bestVotes / queryHashCount;
     result.offsetSec = (double)bestDelta * fp_params::HOP_SIZE / fp_params::SAMPLE_RATE;
     result.matched = result.inputConfidence >= fp_params::MIN_CONFIDENCE;

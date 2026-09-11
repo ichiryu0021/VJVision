@@ -91,7 +91,16 @@ std::vector<DeviceInfo> WasapiCapture::listDevices() {
 WasapiCapture::~WasapiCapture() { close(); }
 
 bool WasapiCapture::open(int index) {
+    selectById_ = false;
     wantedIndex_ = index;
+    wantedId_.clear();
+    return true;
+}
+
+bool WasapiCapture::openEndpoint(const std::wstring& endpointId) {
+    selectById_ = true;
+    wantedId_ = endpointId;
+    wantedIndex_ = -1;
     return true;
 }
 
@@ -139,7 +148,46 @@ bool WasapiCapture::runOnce() {
     bool isLoopback = true;
     IMMDevice* dev = nullptr;
     HRESULT hr;
-    if (wantedIndex_ < 0) {
+    if (selectById_) {
+        // Stable selection: open the persisted WASAPI endpoint id directly.
+        // Enumeration order (USB sound cards reordering on plug/unplug) is
+        // irrelevant on this path.
+        if (wantedId_.empty()) {
+            isLoopback = true;
+            hr = en->GetDefaultAudioEndpoint(eRender, eConsole, &dev);
+        } else {
+            auto renders = enumEndpoints(en, eRender);
+            auto captures = enumEndpoints(en, eCapture);
+            bool activeRender = false;
+            bool activeCapture = false;
+            for (const auto& e : renders) {
+                if (e.id == wantedId_) { activeRender = true; break; }
+            }
+            if (!activeRender) {
+                for (const auto& e : captures) {
+                    if (e.id == wantedId_) { activeCapture = true; break; }
+                }
+            }
+
+            if (activeRender || activeCapture) {
+                isLoopback = activeRender;
+                hr = en->GetDevice(wantedId_.c_str(), &dev);
+            } else {
+                hr = E_NOTFOUND;
+            }
+
+            // Saved endpoint vanished (unplugged / disabled): use the system
+            // default render loopback instead of spinning forever. Keep the
+            // failure path behavior identical to legacy index selection.
+            if (FAILED(hr) || !dev) {
+                fprintf(stderr, "[wasapi] saved endpoint unavailable — falling back to default loopback.\n");
+                wantedId_.clear();
+                dev = nullptr;
+                isLoopback = true;
+                hr = en->GetDefaultAudioEndpoint(eRender, eConsole, &dev);
+            }
+        }
+    } else if (wantedIndex_ < 0) {
         isLoopback = true;
         hr = en->GetDefaultAudioEndpoint(eRender, eConsole, &dev);
     } else {
@@ -151,10 +199,19 @@ bool WasapiCapture::runOnce() {
             isLoopback = false;
             auto captures = enumEndpoints(en, eCapture);
             int ci = wantedIndex_ - (int)renders.size();
+            hr = E_NOTFOUND;
             if (ci >= 0 && ci < (int)captures.size())
                 hr = en->GetDevice(captures[ci].id.c_str(), &dev);
-            else
-                hr = E_NOTFOUND;
+        }
+        // Saved endpoint vanished (unplugged / disabled / reordered): use
+        // the system default render loopback instead of spinning forever.
+        if (FAILED(hr) || !dev) {
+            fprintf(stderr, "[wasapi] saved device %d unavailable — falling back to default loopback.\n",
+                    wantedIndex_);
+            wantedIndex_ = -1;
+            dev = nullptr;
+            isLoopback = true;
+            hr = en->GetDefaultAudioEndpoint(eRender, eConsole, &dev);
         }
     }
     en->Release();
@@ -169,6 +226,18 @@ bool WasapiCapture::runOnce() {
     hr = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&client);
     dev->Release();
     if (FAILED(hr) || !client) {
+        // Endpoint exists but cannot activate (disabled / exclusive lock):
+        // next retry should use the default loopback instead of this device.
+        if (selectById_) {
+            if (!wantedId_.empty()) {
+                fprintf(stderr, "[wasapi] saved endpoint cannot activate — next retry uses default loopback.\n");
+                wantedId_.clear();
+            }
+        } else if (wantedIndex_ >= 0) {
+            fprintf(stderr, "[wasapi] saved device %d cannot activate — next retry uses default loopback.\n",
+                    wantedIndex_);
+            wantedIndex_ = -1;
+        }
         lost_.store(true);
         for (int i = 0; i < 15 && running_.load(); ++i) Sleep(100);
         return false;

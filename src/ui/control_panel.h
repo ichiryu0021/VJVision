@@ -20,7 +20,6 @@ class QLineEdit;
 class QPushButton;
 class QProgressBar;
 class QPlainTextEdit;
-class QDoubleSpinBox;
 class QSpinBox;
 class QLabel;
 class QTimer;
@@ -42,6 +41,8 @@ private slots:
     void onIndexProgress(int done, int total, const QString& info);
     void onIndexFinished(int ok, int skipped, int failed);
     void onSessionStopped();
+    void onChargeUpdate(int curId, int curBar, int candId, int candBar,
+                        int ev, double conf);   // 常驻电量状态窗
 
 private:
     void buildUi();
@@ -97,17 +98,21 @@ private:
     QSlider* logoPlayingSlider_ = nullptr;   // playing logo size slider (×100)
     QLabel* logoPlayingLabel_ = nullptr;
 
-    // Thresholds
-    QDoubleSpinBox* noiseSpin_ = nullptr;
-    QDoubleSpinBox* firstSpin_ = nullptr;
-    QDoubleSpinBox* switchSpin_ = nullptr;
-    QSpinBox* confirmSpin_ = nullptr;
-
     // Run / language / log
     QPushButton* vizBtn_ = nullptr;
     QComboBox* langCombo_ = nullptr;
     QPlainTextEdit* logView_ = nullptr;
     QTimer* levelTimer_ = nullptr;
+
+#ifdef VJVISION_CHARGE_ENGINE
+    // 常驻电量状态（专有电量引擎构建）
+    QGroupBox*   grpCharge_ = nullptr;
+    QProgressBar* slotBar_ = nullptr;
+    QProgressBar* candBar_ = nullptr;
+    QLabel*      slotIdLbl_ = nullptr;
+    QLabel*      candIdLbl_ = nullptr;
+    QLabel*      chargeEvLbl_ = nullptr;
+#endif
 
     std::thread indexThread_;
     std::atomic<bool> indexing_{false};
@@ -116,7 +121,6 @@ private:
     QGroupBox* grpAudio_ = nullptr;
     QGroupBox* grpLib_ = nullptr;
     QGroupBox* grpVisual_ = nullptr;
-    QGroupBox* grpThr_ = nullptr;
     QGroupBox* grpRun_ = nullptr;
 };
 

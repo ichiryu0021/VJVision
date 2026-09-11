@@ -16,7 +16,7 @@
 #include "audio/wasapi_capture.h"
 #include "audio/ring_buffer.h"
 #include "audio/spectrum.h"
-#include "engine/match_engine.h"
+#include "engine/i_match_engine.h"
 #include "engine/indexer.h"
 #include "viz/viz_events.h"
 #include "viz/ipc_pipe.h"
@@ -176,7 +176,7 @@ static int listenCmd(const std::string& dbPath, int deviceIndex) {
     const size_t windowSamples = (size_t)fp_params::SAMPLE_RATE * windowSec;
     std::vector<int16_t> i16(windowSamples);
 
-    MatchEngine engine;
+    auto engine = createMatchEngine(MatchParams{});
     using clock = std::chrono::steady_clock;
     const auto tStart = clock::now();
 
@@ -205,7 +205,7 @@ static int listenCmd(const std::string& dbPath, int deviceIndex) {
             // Feed the engine an empty result so pending/tentative state
             // ages out during silence, but stay quiet on screen.
             FpResult empty;
-            engine.tick(empty, nowSec);
+            engine->tick(empty, nowSec);
             continue;
         }
         float gain = 0.95f / peak;
@@ -223,7 +223,7 @@ static int listenCmd(const std::string& dbPath, int deviceIndex) {
             result = alignMatches(fps, hits, (int)fps.size());
         }
 
-        MatchTick mt = engine.tick(result, nowSec);
+        MatchTick mt = engine->tick(result, nowSec);
         switch (mt.event) {
             case MatchEvent::Confirmed: {
                 SongInfo info = db.getSong(mt.songId);
@@ -251,9 +251,9 @@ static int listenCmd(const std::string& dbPath, int deviceIndex) {
                 break;
             case MatchEvent::None:
                 // Pending confirmation streak or re-confirm of current track.
-                if (mt.confidence >= 0.13f) {
+                if (mt.confidence >= 0.10f) {
                     printf("[%.0fs]   pending/hold  conf=%.3f  (current song_id=%d)\n",
-                           nowSec, mt.confidence, engine.currentSongId());
+                           nowSec, mt.confidence, engine->currentSongId());
                 }
                 break;
         }
@@ -279,8 +279,22 @@ static int vizCmd(int argc, char** argv, const std::string& dbPath,
     QObject::connect(&ctl, &VizController::logMessage, &app,
         [](const QString& line) {
             printf("%s\n", line.toUtf8().constData());
+            fflush(stdout); // line-visible when stdout is redirected to a file
         }, Qt::DirectConnection);
-    if (!ctl.start(dbPath, deviceIndex)) return 1;
+
+    // CLI still accepts the documented volatile enumeration index; resolve it
+    // once at startup to the stable WASAPI endpoint id used by the worker.
+    std::wstring deviceId;
+    if (deviceIndex >= 0) {
+        const auto devices = WasapiCapture::listDevices();
+        if (deviceIndex < (int)devices.size()) {
+            deviceId = devices[deviceIndex].id;
+        } else {
+            fprintf(stderr, "Device index %d not found — using default loopback.\n",
+                    deviceIndex);
+        }
+    }
+    if (!ctl.start(dbPath, deviceId)) return 1;
     // In standalone mode, closing the visualizer (Escape) exits the app.
     QObject::connect(&ctl, &VizController::sessionStopped,
                      &app, [&] { app.quit(); });
