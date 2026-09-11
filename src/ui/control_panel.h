@@ -54,6 +54,7 @@ private:
     void browseMusicDir();
     void startIndex();
     void cancelIndex();
+    void forceReindex();    // v2.0.4: clear DB then startIndex()
     void toggleViz();
     QString t(const char* key) const;
     // Auto-discover VJVision.db inside dataDir
@@ -71,6 +72,7 @@ private:
     QLineEdit* dirEdit_ = nullptr;
     QPushButton* browseDirBtn_ = nullptr;
     QPushButton* indexBtn_ = nullptr;
+    QPushButton* reindexBtn_ = nullptr;   // v2.0.4: force re-analyze
     QProgressBar* indexBar_ = nullptr;
     QLabel* indexLabel_ = nullptr;
     QLabel* songCountLabel_ = nullptr;
@@ -83,6 +85,8 @@ private:
     QPushButton* browseBgBtn_ = nullptr;
     QPushButton* clearBgBtn_ = nullptr;
     QComboBox* bgModeCombo_ = nullptr;
+    QComboBox* fxTextureCombo_ = nullptr;   // v2.0.4: fx texture selector (pulse/ripple/particles)
+    QComboBox* perfModeCombo_ = nullptr;     // v2.0.4: performance mode (auto/high/mid/low)
     QPushButton* bgColorBtn_ = nullptr;      // color picker for default-bg mode
     QLabel* bgRowLabel_ = nullptr;           // dynamic label: "bgColor" / "bgVideo"
     QSlider* overlaySlider_ = nullptr;       // replaces blur slider

@@ -72,8 +72,102 @@ Window {
             ? [224, 235, 255, 255, 179, 102, 115, 230, 191]
             : viz.effectiveColors
         readonly property int vizMode: root._mock ? 0 : viz.vizMode
+        readonly property int bgMode: root._mock ? 0 : viz.bgMode
+        readonly property int fxTexture: root._mock ? 0 : viz.fxTexture
+        readonly property int performanceMode: root._mock ? 0 : viz.performanceMode
         readonly property real logoSizeStandby: root._mock ? 1.0 : viz.logoSizeStandby
         readonly property real logoSizePlaying: root._mock ? 0.29 : viz.logoSizePlaying
+    }
+
+    // ---------- v2.0.4: Rhythm feature extractor (QML-side) ----------
+    // Derives bass/mid/treble/energy/beat/onset from mx.bins (48 Mel bands).
+    // Runs at 30fps via rhythmTimer. onset triggers fire when low-freq energy
+    // exceeds EMA baseline + k*sqrt(var) with min 120ms refractory. beat is
+    // an exp(-dt/tau) decay envelope (tau=180ms). Silence-protected.
+    QtObject {
+        id: rhythm
+        property real bass: 0
+        property real mid: 0
+        property real treble: 0
+        property real energy: 0
+        property real beat: 0
+        property bool onset: false
+
+        // EMA state for onset detection
+        property real bassMean: 0.01
+        property real bassVar: 0.001
+        property real lastOnsetMs: 0
+
+        // Resolved performance mode (auto → heuristic, otherwise user pick)
+        readonly property int resolvedPerf: {
+            var p = mx.performanceMode
+            if (p === 1) return 1   // high
+            if (p === 2) return 2   // mid
+            if (p === 3) return 3   // low
+            // auto (p===0): coarse heuristic — 8+ cores → high, else mid
+            // QML has no std::thread::hardware_concurrency, so use a fixed
+            // mid default (v2.1.0 will move detection to C++).
+            return 2
+        }
+
+        // Tunables
+        readonly property real onsetK: 1.8       // sensitivity
+        readonly property real onsetRefractoryMs: 120
+        readonly property real beatTauMs: 180.0
+        readonly property real silenceThresh: 1e-4
+
+        property real lastTickMs: 0
+
+        Timer {
+            id: rhythmTimer
+            interval: 33   // 30fps
+            repeat: true
+            running: true
+            onTriggered: rhythm.update()
+        }
+
+        function update() {
+            var bins = mx.bins
+            var n = bins ? bins.length : 0
+            if (n < 6) { bass = 0; mid = 0; treble = 0; energy = 0; beat = Math.max(0, beat - 0.02); onset = false; return }
+
+            // Band aggregation (48 Mel bins: bass 0-5, mid 6-23, treble 24-47)
+            var bSum = 0, mSum = 0, tSum = 0, allSum = 0
+            for (var i = 0; i < 6; ++i) { var v = bins[i]; bSum += v; allSum += v }
+            for (var i2 = 6; i2 < 24 && i2 < n; ++i2) { var v2 = bins[i2]; mSum += v2; allSum += v2 }
+            for (var i3 = 24; i3 < n; ++i3) { var v3 = bins[i3]; tSum += v3; allSum += v3 }
+            var bassVal = bSum / 6
+            var midVal = mSum / Math.max(1, (Math.min(24, n) - 6))
+            var trebleVal = tSum / Math.max(1, (n - 24))
+            var energyVal = allSum / n
+            bass = bassVal; mid = midVal; treble = trebleVal; energy = energyVal
+
+            var now = Date.now()
+            var dt = lastTickMs > 0 ? (now - lastTickMs) / 1000.0 : 0.033
+            lastTickMs = now
+
+            // Beat decay
+            var decay = Math.exp(-dt * 1000.0 / beatTauMs)
+            beat = beat * decay
+
+            // Onset detection (EMA mean/var on bass)
+            var alpha = 0.05
+            var delta = bassVal - bassMean
+            bassMean = bassMean + alpha * delta
+            bassVar = (1 - alpha) * (bassVar + alpha * delta * delta)
+
+            onset = false
+            if (bassVal > silenceThresh && bassVal > bassMean + onsetK * Math.sqrt(Math.max(0, bassVar))) {
+                if (now - lastOnsetMs > onsetRefractoryMs) {
+                    onset = true
+                    beat = 1.0
+                    lastOnsetMs = now
+                }
+            }
+
+            // Silence: beat fades to 0
+            if (bassVal < silenceThresh) { beat = beat * 0.9 }
+        }
     }
 
     // F toggles fullscreen on the screen the window is currently on.
@@ -485,6 +579,222 @@ Window {
                 }
             }
         }   // ← end of ripple Canvas
+
+        // [2b] v2.0.4: FX texture Canvas — shown only when bgMode==2 (rhythm texture).
+        //     Sits at the SAME z as ripple (between base color and custom media).
+        //     3 textures: pulse / ripple / particles — selected by mx.fxTexture.
+        //     Performance mode (mx.performanceMode) scales params.
+        //     Hidden in bgMode 0/1 → zero CPU cost.
+        Canvas {
+            id: fxCanvas
+            anchors.fill: parent
+            contextType: "2d"
+            renderStrategy: Canvas.Immediate
+            visible: mx.bgMode === 2
+            opacity: 1.0
+
+            // --- Performance scaling (high/mid/low) ---
+            readonly property int perf: rhythm.resolvedPerf   // 1/2/3
+            readonly property int fpsInterval: perf === 3 ? 66 : 33   // low=15fps, else 30fps
+            readonly property int particleCap: perf === 1 ? 200 : (perf === 2 ? 100 : 0)
+            readonly property int ringCap: perf === 1 ? 12 : 6
+            readonly property real ampScale: perf === 1 ? 1.0 : (perf === 2 ? 0.7 : 0.5)
+            // low mode forces pulse-only rendering (ripple/particles degrade to pulse)
+            readonly property bool lowMode: perf === 3
+            readonly property int effectiveTexture: lowMode ? 0 : mx.fxTexture
+
+            // --- Cross-frame persistent state ---
+            // particles: [{x,y,vx,vy,life,r}]
+            property var particles: []
+            // ripple rings: [{x,y,r,vr,alpha,w}]
+            property var rings: []
+            // pulse drift phase accumulator
+            property real pulseT: 0
+
+            Timer {
+                id: fxTimer
+                interval: fxCanvas.fpsInterval
+                repeat: true
+                running: fxCanvas.visible
+                onTriggered: fxCanvas.requestPaint()
+            }
+
+            onPaint: {
+                var ctx = getContext("2d")
+                var w = width, h = height
+                ctx.reset()
+                ctx.globalCompositeOperation = "source-over"
+
+                // Color palette from effectiveColors (flat [r0,g0,b0, r1,g1,b1, r2,g2,b2])
+                var ec = mx.effectiveColors
+                var c0 = (ec && ec.length >= 9) ? [ec[0],ec[1],ec[2]] : [80,80,120]
+                var c1 = (ec && ec.length >= 9) ? [ec[3],ec[4],ec[5]] : [80,80,120]
+                var c2 = (ec && ec.length >= 9) ? [ec[6],ec[7],ec[8]] : [80,80,120]
+
+                function rgba(c, a) { return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + "," + a + ")" }
+
+                var t = Date.now() / 1000.0
+                var b = rhythm.beat
+                var energy = rhythm.energy
+                var bass = rhythm.bass
+                var treble = rhythm.treble
+                var onsetFlag = rhythm.onset
+                var amp = ampScale
+
+                // --- Texture dispatch ---
+                var tex = effectiveTexture
+                if (tex === 1 && !lowMode) {
+                    paintRipple(ctx, w, h, t, b, bass, treble, onsetFlag, amp, [c0,c1,c2], rgba)
+                } else if (tex === 2 && !lowMode) {
+                    paintParticles(ctx, w, h, t, b, energy, bass, onsetFlag, amp, [c0,c1,c2], rgba)
+                } else {
+                    paintPulse(ctx, w, h, t, b, energy, onsetFlag, amp, [c0,c1,c2], rgba)
+                }
+            }
+
+            // --- pulse: rhythm-modulated wave field (evolution of default ripple) ---
+            function paintPulse(ctx, w, h, t, beat, energy, onset, amp, cols, rgba) {
+                pulseT += 0.033
+                var cx = w / 2, cy = h / 2
+                var layers = 3
+                var waves = [
+                    function(x, t2, l) { return Math.sin(x * 0.0025 + t2 * 0.21 + l * 0.7) * 0.7
+                                               + Math.sin(x * 0.006 + t2 * 0.30) * 0.3 },
+                    function(x, t2, l) { return Math.sin(x * 0.004 + t2 * 0.30 + l * 1.1) * 0.6
+                                               + Math.sin(x * 0.009 + t2 * 0.42) * 0.25 },
+                    function(x, t2, l) { return Math.sin(x * 0.005 + t2 * 0.42 + l * 1.5) * 0.5
+                                               + Math.sin(x * 0.011 + t2 * 0.54) * 0.25
+                                               + Math.sin(x * 0.002 - t2 * 0.15) * 0.3 }
+                ]
+                var beatAmp = (0.3 + beat * 0.7) * amp
+                if (onset) beatAmp *= 1.5
+                var ampArr = [h * 0.05 * beatAmp, h * 0.04 * beatAmp, h * 0.03 * beatAmp]
+                var yOffArr = [h * 0.27, h * 0.42, h * 0.58]
+                var alphaArr = [0.28, 0.22, 0.18]
+
+                for (var li = 2; li >= 0; --li) {
+                    ctx.beginPath()
+                    ctx.moveTo(0, h)
+                    ctx.lineTo(0, yOffArr[li])
+                    for (var x = 0; x <= w; x += 5) {
+                        var y = yOffArr[li] + waves[li](x, pulseT, li) * ampArr[li]
+                        ctx.lineTo(x, y)
+                    }
+                    ctx.lineTo(w, h)
+                    ctx.closePath()
+                    var lc = cols[li]
+                    var a = alphaArr[li] * (0.5 + energy * 0.5)
+                    var crestY = yOffArr[li] - ampArr[li]
+                    var grad = ctx.createLinearGradient(0, crestY, 0, h)
+                    grad.addColorStop(0.00, rgba(lc, a))
+                    grad.addColorStop(0.15, rgba(lc, a * 0.6))
+                    grad.addColorStop(0.50, rgba(lc, a * 0.2))
+                    grad.addColorStop(1.00, rgba(lc, 0.0))
+                    ctx.fillStyle = grad
+                    ctx.fill()
+                }
+
+                // Radial push on onset
+                if (onset) {
+                    ctx.beginPath()
+                    var r = Math.max(w, h) * 0.4 * beat
+                    var grad2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+                    grad2.addColorStop(0, rgba(cols[0], 0.15))
+                    grad2.addColorStop(1, rgba(cols[0], 0))
+                    ctx.fillStyle = grad2
+                    ctx.fillRect(0, 0, w, h)
+                }
+            }
+
+            // --- ripple: concentric rings spawned on onset ---
+            function paintRipple(ctx, w, h, t, beat, bass, treble, onset, amp, cols, rgba) {
+                var cx = w / 2, cy = h / 2
+                // Spawn new ring on onset
+                if (onset) {
+                    var isBass = bass > treble
+                    var vr = isBass ? (2.0 + bass * 6.0) : (4.0 + treble * 8.0)
+                    var w2 = isBass ? 3.0 : 1.5
+                    var col = isBass ? cols[0] : cols[2]
+                    rings.push({x: cx, y: cy, r: 1, vr: vr * amp, alpha: 0.6, w: w2, c: col})
+                    // Cap rings
+                    while (rings.length > ringCap) rings.shift()
+                }
+                // Update + draw rings
+                ctx.globalCompositeOperation = "lighter"
+                for (var i = rings.length - 1; i >= 0; --i) {
+                    var ring = rings[i]
+                    ring.r += ring.vr
+                    ring.alpha *= 0.97
+                    if (ring.alpha < 0.01 || ring.r > Math.max(w, h)) {
+                        rings.splice(i, 1)
+                        continue
+                    }
+                    ctx.beginPath()
+                    ctx.arc(ring.x, ring.y, ring.r, 0, 2 * Math.PI)
+                    ctx.strokeStyle = rgba(ring.c, ring.alpha)
+                    ctx.lineWidth = ring.w
+                    ctx.stroke()
+                }
+                ctx.globalCompositeOperation = "source-over"
+
+                // Faint ambient pulse even without onset (don't freeze)
+                if (rings.length === 0) {
+                    var r2 = Math.max(w, h) * 0.3 * (0.5 + beat * 0.5)
+                    var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r2)
+                    grad.addColorStop(0, rgba(cols[1], 0.08))
+                    grad.addColorStop(1, rgba(cols[1], 0))
+                    ctx.fillStyle = grad
+                    ctx.fillRect(0, 0, w, h)
+                }
+            }
+
+            // --- particles: burst on onset, physics integration, trail ---
+            function paintParticles(ctx, w, h, t, beat, energy, bass, onset, amp, cols, rgba) {
+                var cx = w / 2, cy = h / 2
+                // Spawn on onset
+                if (onset && particleCap > 0) {
+                    var n = Math.min(particleCap - particles.length, Math.round(20 + bass * 80))
+                    for (var i = 0; i < n; ++i) {
+                        var ang = Math.random() * 2 * Math.PI
+                        var speed = (1.0 + bass * 5.0) * amp * (0.5 + Math.random())
+                        particles.push({
+                            x: cx, y: cy,
+                            vx: Math.cos(ang) * speed,
+                            vy: Math.sin(ang) * speed,
+                            life: 1.0,
+                            r: 2 + Math.random() * 3,
+                            c: cols[Math.floor(Math.random() * 3)]
+                        })
+                    }
+                    while (particles.length > particleCap) particles.shift()
+                }
+
+                // Fade canvas (trail effect) — draw semi-transparent black rect
+                ctx.globalCompositeOperation = "source-over"
+                ctx.fillStyle = "rgba(5, 6, 10, 0.12)"
+                ctx.fillRect(0, 0, w, h)
+
+                // Integrate + draw particles
+                ctx.globalCompositeOperation = "lighter"
+                for (var j = particles.length - 1; j >= 0; --j) {
+                    var p = particles[j]
+                    p.x += p.vx
+                    p.y += p.vy
+                    p.vx *= 0.98   // damping
+                    p.vy *= 0.98
+                    p.life *= 0.96
+                    if (p.life < 0.02 || p.x < -20 || p.x > w + 20 || p.y < -20 || p.y > h + 20) {
+                        particles.splice(j, 1)
+                        continue
+                    }
+                    ctx.beginPath()
+                    ctx.arc(p.x, p.y, p.r * p.life, 0, 2 * Math.PI)
+                    ctx.fillStyle = rgba(p.c, p.life * 0.8)
+                    ctx.fill()
+                }
+                ctx.globalCompositeOperation = "source-over"
+            }
+        }   // ← end of fxCanvas
 
         // [3] Custom background — ON TOP of ripple, BEHIND dark-dim overlay.
         // ALL components here are direct Window children (no Item wrapper).

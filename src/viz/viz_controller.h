@@ -55,6 +55,9 @@ public:
     void setBgOverlayDepth(float v);      // 0..1
     void setBgColor(const QString& hex);
     void setVizMode(int v);
+    void setBgMode(int v);
+    void setFxTexture(int v);
+    void setPerformanceMode(int v);
     void setLogoSizeStandby(float v);
     void setLogoSizePlaying(float v);
 

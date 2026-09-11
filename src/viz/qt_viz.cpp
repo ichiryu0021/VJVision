@@ -215,6 +215,17 @@ bool QtVizSink::recreateEngine() {
         scheduleRecovery();
     });
 
+    // --- v2.0.4: native window close → session teardown ---
+    // closing() fires for X button / Alt+F4 / system-menu close (NOT for the
+    // QML Escape shortcut, which calls requestClose() and never actually
+    // closes the window — stop() tears it down via qtSink_.reset()). Without
+    // this hook the worker keeps running and the control-panel button is
+    // stuck on "Stop visualizer" after the user closes the window manually.
+    // stop() is idempotent, so a queued closeRequested racing with the ESC
+    // path is safe.
+    QObject::connect(window, &QQuickWindow::closing,
+                     this, [this]() { emit closeRequested(); });
+
     // Position window — start windowed so user can drag + press F for fullscreen.
     const auto screens = QGuiApplication::screens();
     QScreen* targetScreen = QGuiApplication::primaryScreen();
@@ -244,6 +255,9 @@ bool QtVizSink::recreateEngine() {
     emit bgOverlayDepthChanged();
     emit bgColorChanged();
     emit vizModeChanged();
+    emit bgModeChanged();
+    emit fxTextureChanged();
+    emit performanceModeChanged();
     emit logoSizeStandbyChanged();
     emit logoSizePlayingChanged();
 

@@ -61,6 +61,15 @@ void VizController::setBgColor(const QString& hex) {
 void VizController::setVizMode(int v) {
     if (qtSink_) qtSink_->setVizMode(v);
 }
+void VizController::setBgMode(int v) {
+    if (qtSink_) qtSink_->setBgMode(v);
+}
+void VizController::setFxTexture(int v) {
+    if (qtSink_) qtSink_->setFxTexture(v);
+}
+void VizController::setPerformanceMode(int v) {
+    if (qtSink_) qtSink_->setPerformanceMode(v);
+}
 void VizController::setLogoSizeStandby(float v) {
     if (qtSink_) qtSink_->setLogoSizeStandby(v);
 }

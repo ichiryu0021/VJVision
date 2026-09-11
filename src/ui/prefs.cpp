@@ -73,6 +73,8 @@ Prefs Prefs::load() {
             p.standbyPath = o.value("standbyPath").toString();
             p.bgVideoPath = o.value("bgVideoPath").toString();
             p.bgMode = (int)o.value("bgMode").toDouble(0);
+            p.fxTexture = (int)o.value("fxTexture").toDouble(0);
+            p.performanceMode = (int)o.value("performanceMode").toDouble(0);
             p.bgOverlayDepth = (float)o.value("bgOverlayDepth").toDouble(p.bgOverlayDepth);
             p.bgColor = o.value("bgColor").toString();
             if (p.bgColor.isEmpty()) p.bgColor = "#000000";
@@ -108,6 +110,8 @@ void Prefs::save() const {
     o["standbyPath"] = standbyPath;
     o["bgVideoPath"] = bgVideoPath;
     o["bgMode"] = bgMode;
+    o["fxTexture"] = fxTexture;
+    o["performanceMode"] = performanceMode;
     o["bgOverlayDepth"] = bgOverlayDepth;
     o["bgColor"] = bgColor;
     o["language"] = language;

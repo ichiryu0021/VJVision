@@ -17,6 +17,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
@@ -43,6 +44,10 @@ const char* tr2(const QString& lang, const char* key) {
         {"indexing",       "分析中…",                      "Analyzing…"},
         {"cancelIndex",    "取消分析",                     "Cancel analysis"},
         {"indexCancelled", "分析已取消",                   "Analysis cancelled"},
+        {"forceReindex",   "强制重新分析",                 "Force re-analyze"},
+        {"reindexConfirm", "将清除所有已分析数据并重新开始。确定继续？",
+                           "This will clear ALL analyzed data and restart. Continue?"},
+        {"dbCleared",      "数据库已清空，开始重新分析…",  "Database cleared, re-analyzing…"},
         {"indexRun",       "分析音乐",                     "Analyze music"},
         {"indexStatus",    "分析状态",                     "Analysis status"},
         {"songCount",      "已分析歌曲",                   "Analyzed songs"},
@@ -55,6 +60,16 @@ const char* tr2(const QString& lang, const char* key) {
         {"bgMode",         "背景来源",                     "Bg source"},
         {"bgDefault",      "默认（内置）",                  "Default (built-in)"},
         {"bgCustom",       "自定义",                       "Custom"},
+        {"bgFx",           "节奏纹理",                     "Rhythm texture"},
+        {"fxTexture",      "纹理",                         "Texture"},
+        {"fxPulse",        "律动波场",                     "Pulse"},
+        {"fxRipple",       "同心涟漪",                     "Ripple"},
+        {"fxParticles",    "粒子迸发",                     "Particles"},
+        {"perfMode",       "性能模式",                     "Performance"},
+        {"perfAuto",       "自动",                         "Auto"},
+        {"perfHigh",       "高",                           "High"},
+        {"perfMid",        "中",                           "Mid"},
+        {"perfLow",        "低",                           "Low"},
         {"vizMode",        "波形模式",                     "Waveform mode"},
         {"vizMirrored",    "镜像柱状",                     "Mirrored bars"},
         {"vizCentered",    "居中柱状",                     "Centered bars"},
@@ -177,10 +192,13 @@ void ControlPanel::buildUi() {
         if (indexing_.load()) cancelIndex();
         else startIndex();
     });
+    reindexBtn_ = new QPushButton;
+    connect(reindexBtn_, &QPushButton::clicked, this, &ControlPanel::forceReindex);
     indexBar_ = new QProgressBar;
     indexBar_->setRange(0, 100);
     indexBar_->setValue(0);
     idxRow->addWidget(indexBtn_);
+    idxRow->addWidget(reindexBtn_);
     idxRow->addWidget(indexBar_, 1);
     libForm->addRow(lbl("indexRun"), idxRow);
     indexLabel_ = new QLabel;
@@ -266,12 +284,34 @@ void ControlPanel::buildUi() {
             logoPlayingSlider_->setValue(30);
         });
     }
-    // Background source mode: Default (built-in) vs Custom
+    // Background source mode: Default (built-in) / Custom / Rhythm texture (fx)
     auto* bgModeCombo = new QComboBox;
     bgModeCombo->addItem(t("bgDefault"), 0);
     bgModeCombo->addItem(t("bgCustom"), 1);
+    bgModeCombo->addItem(t("bgFx"), 2);
     bgModeCombo_ = bgModeCombo;
     visForm->addRow(lbl("bgMode"), bgModeCombo);
+
+    // v2.0.4: fx texture + performance mode selectors (shown when bgMode==2)
+    fxTextureCombo_ = new QComboBox;
+    fxTextureCombo_->addItem(t("fxPulse"), 0);
+    fxTextureCombo_->addItem(t("fxRipple"), 1);
+    fxTextureCombo_->addItem(t("fxParticles"), 2);
+    connect(fxTextureCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int idx) {
+        prefs_.fxTexture = idx; syncPrefs();
+        if (controller_ && controller_->isRunning())
+            controller_->setFxTexture(prefs_.fxTexture);
+    });
+    perfModeCombo_ = new QComboBox;
+    perfModeCombo_->addItem(t("perfAuto"), 0);
+    perfModeCombo_->addItem(t("perfHigh"), 1);
+    perfModeCombo_->addItem(t("perfMid"), 2);
+    perfModeCombo_->addItem(t("perfLow"), 3);
+    connect(perfModeCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int idx) {
+        prefs_.performanceMode = idx; syncPrefs();
+        if (controller_ && controller_->isRunning())
+            controller_->setPerformanceMode(prefs_.performanceMode);
+    });
 
     // Row label — changes: "bgColor" (Default) or "bgVideo" (Custom)
     bgRowLabel_ = new QLabel;
@@ -311,20 +351,31 @@ void ControlPanel::buildUi() {
     bgRowWidget->setLayout(bgRow);
     const QString labelBgVideo = lbl("bgVideo")->text();
     const QString labelBgColor = lbl("bgColor")->text();
-    auto updateBgRowForMode = [bgRow, this, labelBgVideo, labelBgColor](int mode) {
-        bool custom = (mode == 1);
+    const QString labelFxTexture = lbl("fxTexture")->text();
+    const QString labelPerfMode = lbl("perfMode")->text();
+    auto updateBgRowForMode = [bgRow, this, labelBgVideo, labelBgColor,
+                               labelFxTexture, labelPerfMode](int mode) {
         // Clear layout
         QLayoutItem* item;
         while ((item = bgRow->takeAt(0)) != nullptr) {
             if (item->widget()) item->widget()->setParent(nullptr);
             delete item;
         }
-        if (custom) {
+        if (mode == 1) {
+            // Custom background media
             bgRowLabel_->setText(labelBgVideo);
             bgRow->addWidget(bgVideoEdit_, 1);
             bgRow->addWidget(browseBgBtn_);
             bgRow->addWidget(clearBgBtn_);
+        } else if (mode == 2) {
+            // Rhythm texture (fx) — show texture + perf selectors side by side
+            bgRowLabel_->setText(labelFxTexture);
+            bgRow->addWidget(fxTextureCombo_, 1);
+            auto* perfLabel = new QLabel(labelPerfMode);
+            bgRow->addWidget(perfLabel);
+            bgRow->addWidget(perfModeCombo_, 1);
         } else {
+            // Default (built-in) — color picker
             bgRowLabel_->setText(labelBgColor);
             bgRow->addWidget(bgColorBtn_);
             bgRow->addStretch(1);
@@ -461,9 +512,21 @@ void ControlPanel::retranslate() {
     clearStandbyBtn_->setText(t("clear"));
     clearBgBtn_->setText(t("clear"));
     indexBtn_->setText(indexing_.load() ? t("cancelIndex") : t("index"));
+    reindexBtn_->setText(t("forceReindex"));
+    reindexBtn_->setEnabled(!indexing_.load());
     vizModeCombo_->setItemText(0, t("vizMirrored"));
     vizModeCombo_->setItemText(1, t("vizRadial"));
     vizModeCombo_->setItemText(2, t("vizWaterfall"));
+    bgModeCombo_->setItemText(0, t("bgDefault"));
+    bgModeCombo_->setItemText(1, t("bgCustom"));
+    bgModeCombo_->setItemText(2, t("bgFx"));
+    fxTextureCombo_->setItemText(0, t("fxPulse"));
+    fxTextureCombo_->setItemText(1, t("fxRipple"));
+    fxTextureCombo_->setItemText(2, t("fxParticles"));
+    perfModeCombo_->setItemText(0, t("perfAuto"));
+    perfModeCombo_->setItemText(1, t("perfHigh"));
+    perfModeCombo_->setItemText(2, t("perfMid"));
+    perfModeCombo_->setItemText(3, t("perfLow"));
     if (controller_ && controller_->isRunning()) {
         vizBtn_->setText(t("stopViz"));
     } else {
@@ -484,6 +547,8 @@ void ControlPanel::loadPrefsToUi() {
     standbyEdit_->setText(prefs_.standbyPath);
     bgVideoEdit_->setText(prefs_.bgVideoPath);
     bgModeCombo_->setCurrentIndex(prefs_.bgMode);
+    fxTextureCombo_->setCurrentIndex(prefs_.fxTexture);
+    perfModeCombo_->setCurrentIndex(prefs_.performanceMode);
     overlaySlider_->setValue(int(qBound(0.f, prefs_.bgOverlayDepth, 1.f) * 100.f));
     overlayLabel_->setText(QStringLiteral("%1%").arg(overlaySlider_->value()));
     noiseSpin_->setValue(prefs_.match.noiseFloor);
@@ -507,7 +572,9 @@ void ControlPanel::loadPrefsToUi() {
 void ControlPanel::syncPrefs() {
     prefs_.musicDir = dirEdit_->text().trimmed();
     prefs_.standbyPath = standbyEdit_->text().trimmed();
-    prefs_.bgMode = bgModeCombo_->currentIndex();   // 0=default, 1=custom
+    prefs_.bgMode = bgModeCombo_->currentIndex();   // 0=default, 1=custom, 2=fx
+    prefs_.fxTexture = fxTextureCombo_->currentIndex();
+    prefs_.performanceMode = perfModeCombo_->currentIndex();
     prefs_.bgVideoPath = bgVideoEdit_->text().trimmed();
     prefs_.deviceIdx = deviceCombo_->currentIndex() > 0
                            ? deviceCombo_->currentData().toInt() : -1;
@@ -534,6 +601,9 @@ void ControlPanel::syncPrefs() {
         controller_->setBgOverlayDepth(prefs_.bgOverlayDepth);
         controller_->setBgColor(prefs_.bgColor);
         controller_->setVizMode(prefs_.vizMode);
+        controller_->setBgMode(prefs_.bgMode);
+        controller_->setFxTexture(prefs_.fxTexture);
+        controller_->setPerformanceMode(prefs_.performanceMode);
         controller_->setLogoSizeStandby(prefs_.logoSizeStandby);
         controller_->setLogoSizePlaying(prefs_.logoSizePlaying);
     }
@@ -607,6 +677,7 @@ void ControlPanel::startIndex() {
     cancelFlag_.store(false);
     indexing_.store(true);
     indexBtn_->setText(t("cancelIndex"));
+    reindexBtn_->setEnabled(false);
     indexBar_->setRange(0, 1);
     indexBar_->setValue(0);
     indexLabel_->setText(QString());
@@ -659,7 +730,42 @@ void ControlPanel::cancelIndex() {
     if (!indexing_.load()) return;
     cancelFlag_.store(true);
     indexBtn_->setEnabled(false);
+    reindexBtn_->setEnabled(false);
     appendLog(t("indexCancelled"));
+}
+
+void ControlPanel::forceReindex() {
+    // v2.0.4: clear ALL fingerprint data then re-analyze the current music
+    // directory from scratch. Uses the current dirEdit_ value (no folder
+    // picker) — only a confirmation dialog, per legacy V1 constraint.
+    if (indexing_.load()) return;   // sanity: button is disabled during indexing
+    syncPrefs();
+    const QString dir = dirEdit_->text().trimmed();
+    if (dir.isEmpty()) { appendLog(t("needDir")); return; }
+
+    // Confirmation dialog — destructive operation.
+    auto reply = QMessageBox::question(
+        this, t("forceReindex"), t("reindexConfirm"),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (reply != QMessageBox::Yes) return;
+
+    // Resolve DB path (same logic as startIndex).
+    QString finalDb = resolveDbPath();
+    if (finalDb.isEmpty() && !prefs_.dataDir.isEmpty()) {
+        QDir d(prefs_.dataDir);
+        finalDb = d.filePath(QStringLiteral("VJVision.db"));
+    }
+    if (!finalDb.isEmpty()) {
+        FpDb db;
+        if (db.open(finalDb.toStdString())) {
+            db.clear();      // DROP + recreate songs/fingerprints tables
+            db.vacuum();     // reclaim space
+            db.close();
+        }
+    }
+    appendLog(t("dbCleared"));
+    refreshSongCount();   // show "0" before re-analysis starts
+    startIndex();         // DB is now empty → every file gets re-indexed
 }
 
 void ControlPanel::onIndexProgress(int done, int total, const QString& info) {
@@ -676,6 +782,7 @@ void ControlPanel::onIndexFinished(int ok, int skipped, int failed) {
     indexing_.store(false);
     indexBtn_->setEnabled(true);
     indexBtn_->setText(t("index"));
+    reindexBtn_->setEnabled(true);
     indexBar_->setRange(0, 100);
     indexBar_->setValue(100);
     if (wasCancelled) {
@@ -725,8 +832,12 @@ void ControlPanel::toggleViz() {
         controller_->setBgOverlayDepth(prefs_.bgOverlayDepth);
         controller_->setBgColor(prefs_.bgColor);
         controller_->setVizMode(prefs_.vizMode);
-        appendLog(QStringLiteral("[push] bgOverlayDepth = %1  bgColor = %2  vizMode = %3")
-            .arg(prefs_.bgOverlayDepth, 0, 'f', 2).arg(prefs_.bgColor).arg(prefs_.vizMode));
+        controller_->setBgMode(prefs_.bgMode);
+        controller_->setFxTexture(prefs_.fxTexture);
+        controller_->setPerformanceMode(prefs_.performanceMode);
+        appendLog(QStringLiteral("[push] bgOverlayDepth = %1  bgColor = %2  vizMode = %3  bgMode = %4")
+            .arg(prefs_.bgOverlayDepth, 0, 'f', 2).arg(prefs_.bgColor)
+            .arg(prefs_.vizMode).arg(prefs_.bgMode));
     }
 }
 

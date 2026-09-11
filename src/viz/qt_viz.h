@@ -41,6 +41,9 @@ class QtVizSink : public QObject, public VizSink {
     // QML Canvas binds this and does its own lerp for fade transitions.
     Q_PROPERTY(QVariantList effectiveColors READ effectiveColors NOTIFY effectiveColorsChanged)
     Q_PROPERTY(int vizMode READ vizMode NOTIFY vizModeChanged)
+    Q_PROPERTY(int bgMode READ bgMode NOTIFY bgModeChanged)
+    Q_PROPERTY(int fxTexture READ fxTexture NOTIFY fxTextureChanged)
+    Q_PROPERTY(int performanceMode READ performanceMode NOTIFY performanceModeChanged)
     Q_PROPERTY(float logoSizeStandby READ logoSizeStandby NOTIFY logoSizeStandbyChanged)
     Q_PROPERTY(float logoSizePlaying READ logoSizePlaying NOTIFY logoSizePlayingChanged)
 
@@ -170,6 +173,25 @@ public:
         else emit vizModeChanged();  // always emit so QML gets initial push
     }
 
+    int bgMode() const { return bgMode_; }
+    Q_INVOKABLE void setBgMode(int v) {
+        v = qBound(0, v, 2);
+        if (bgMode_ != v) { bgMode_ = v; emit bgModeChanged(); }
+        else emit bgModeChanged();
+    }
+    int fxTexture() const { return fxTexture_; }
+    Q_INVOKABLE void setFxTexture(int v) {
+        v = qBound(0, v, 2);
+        if (fxTexture_ != v) { fxTexture_ = v; emit fxTextureChanged(); }
+        else emit fxTextureChanged();
+    }
+    int performanceMode() const { return performanceMode_; }
+    Q_INVOKABLE void setPerformanceMode(int v) {
+        v = qBound(0, v, 3);
+        if (performanceMode_ != v) { performanceMode_ = v; emit performanceModeChanged(); }
+        else emit performanceModeChanged();
+    }
+
     float logoSizeStandby() const { return logoSizeStandby_; }
     Q_INVOKABLE void setLogoSizeStandby(float v) {
         v = qBound(0.3f, v, 1.5f);
@@ -195,6 +217,9 @@ signals:
     void bgOverlayDepthChanged();
     void bgColorChanged();
     void vizModeChanged();
+    void bgModeChanged();
+    void fxTextureChanged();
+    void performanceModeChanged();
     void logoSizeStandbyChanged();
     void logoSizePlayingChanged();
 
@@ -236,6 +261,9 @@ private:
     QVariantList standbyColors_;   // empty → will be filled when standbyPath is set
     QVariantList effectiveColors_; // flat [r0,g0,b0, r1,g1,b1, r2,g2,b2]
     int vizMode_ = 0;
+    int bgMode_ = 0;
+    int fxTexture_ = 0;
+    int performanceMode_ = 0;
     float logoSizeStandby_ = 1.0f;
     float logoSizePlaying_ = 0.30f;
 
