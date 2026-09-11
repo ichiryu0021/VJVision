@@ -89,7 +89,6 @@ int FpDb::insertSong(const std::string& name, const std::string& sha1,
 }
 
 void FpDb::insertHashes(int songId, const std::vector<Fingerprint>& hashes) {
-    exec("BEGIN;");
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
         "INSERT OR IGNORE INTO fingerprints (song_id, hash, offset) VALUES (?, ?, ?);",
@@ -102,7 +101,23 @@ void FpDb::insertHashes(int songId, const std::vector<Fingerprint>& hashes) {
         sqlite3_reset(stmt);
     }
     sqlite3_finalize(stmt);
-    exec("COMMIT;");
+}
+
+void FpDb::beginTx() { exec("BEGIN;"); }
+void FpDb::commitTx() { exec("COMMIT;"); }
+
+void FpDb::setCacheSize(int mb) {
+    char sql[64];
+    snprintf(sql, sizeof(sql), "PRAGMA cache_size=%d;", -mb * 1024);
+    exec(sql);
+}
+
+void FpDb::dropIndexForBulk() {
+    exec("DROP INDEX IF EXISTS ix_fingerprints_hash;");
+}
+
+void FpDb::recreateIndexAfterBulk() {
+    exec("CREATE INDEX IF NOT EXISTS ix_fingerprints_hash ON fingerprints(hash);");
 }
 
 std::vector<HashHit> FpDb::lookupHashes(const std::vector<Fingerprint>& query) {

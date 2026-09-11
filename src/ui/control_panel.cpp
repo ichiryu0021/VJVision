@@ -39,8 +39,10 @@ const char* tr2(const QString& lang, const char* key) {
         {"dataDir",        "数据文件夹",                   "Data folder"},
         {"musicDir",       "音乐目录",                     "Music directory"},
         {"browse",         "浏览…",                        "Browse…"},
-        {"index",          "执行分析",                     "Run analysis"},
+        {"index",          "开始分析",                     "Start analysis"},
         {"indexing",       "分析中…",                      "Analyzing…"},
+        {"cancelIndex",    "取消分析",                     "Cancel analysis"},
+        {"indexCancelled", "分析已取消",                   "Analysis cancelled"},
         {"indexRun",       "分析音乐",                     "Analyze music"},
         {"indexStatus",    "分析状态",                     "Analysis status"},
         {"songCount",      "已分析歌曲",                   "Analyzed songs"},
@@ -171,7 +173,10 @@ void ControlPanel::buildUi() {
     libForm->addRow(lbl("musicDir"), dirRow);
     auto* idxRow = new QHBoxLayout();
     indexBtn_ = new QPushButton;
-    connect(indexBtn_, &QPushButton::clicked, this, &ControlPanel::startIndex);
+    connect(indexBtn_, &QPushButton::clicked, this, [this] {
+        if (indexing_.load()) cancelIndex();
+        else startIndex();
+    });
     indexBar_ = new QProgressBar;
     indexBar_->setRange(0, 100);
     indexBar_->setValue(0);
@@ -455,7 +460,7 @@ void ControlPanel::retranslate() {
     browseBgBtn_->setText(t("browse"));
     clearStandbyBtn_->setText(t("clear"));
     clearBgBtn_->setText(t("clear"));
-    indexBtn_->setText(indexing_.load() ? t("indexing") : t("index"));
+    indexBtn_->setText(indexing_.load() ? t("cancelIndex") : t("index"));
     vizModeCombo_->setItemText(0, t("vizMirrored"));
     vizModeCombo_->setItemText(1, t("vizRadial"));
     vizModeCombo_->setItemText(2, t("vizWaterfall"));
@@ -599,9 +604,9 @@ void ControlPanel::startIndex() {
 
     if (indexThread_.joinable()) indexThread_.join();
 
+    cancelFlag_.store(false);
     indexing_.store(true);
-    indexBtn_->setEnabled(false);
-    indexBtn_->setText(t("indexing"));
+    indexBtn_->setText(t("cancelIndex"));
     indexBar_->setRange(0, 1);
     indexBar_->setValue(0);
     indexLabel_->setText(QString());
@@ -631,7 +636,7 @@ void ControlPanel::startIndex() {
                         self->onIndexProgress(p.done, p.total,
                                               QString::fromStdString(p.info));
                     }, Qt::QueuedConnection);
-                });
+                }, &self->cancelFlag_);
             QMetaObject::invokeMethod(self, [self, res] {
                 self->onIndexFinished(res.indexedOk, res.skipped, res.failed);
             }, Qt::QueuedConnection);
@@ -650,6 +655,13 @@ void ControlPanel::startIndex() {
     });
 }
 
+void ControlPanel::cancelIndex() {
+    if (!indexing_.load()) return;
+    cancelFlag_.store(true);
+    indexBtn_->setEnabled(false);
+    appendLog(t("indexCancelled"));
+}
+
 void ControlPanel::onIndexProgress(int done, int total, const QString& info) {
     if (total > 0) {
         indexBar_->setRange(0, total);
@@ -660,13 +672,19 @@ void ControlPanel::onIndexProgress(int done, int total, const QString& info) {
 }
 
 void ControlPanel::onIndexFinished(int ok, int skipped, int failed) {
+    bool wasCancelled = cancelFlag_.load();
     indexing_.store(false);
     indexBtn_->setEnabled(true);
     indexBtn_->setText(t("index"));
     indexBar_->setRange(0, 100);
     indexBar_->setValue(100);
-    indexLabel_->setText(QStringLiteral("%1: ok=%2 skipped=%3 failed=%4")
-                             .arg(t("indexDone")).arg(ok).arg(skipped).arg(failed));
+    if (wasCancelled) {
+        indexLabel_->setText(QStringLiteral("%1: ok=%2 skipped=%3 failed=%4")
+                                 .arg(t("indexCancelled")).arg(ok).arg(skipped).arg(failed));
+    } else {
+        indexLabel_->setText(QStringLiteral("%1: ok=%2 skipped=%3 failed=%4")
+                                 .arg(t("indexDone")).arg(ok).arg(skipped).arg(failed));
+    }
     refreshSongCount();
 }
 
@@ -724,7 +742,10 @@ void ControlPanel::appendLog(const QString& line) {
 }
 
 void ControlPanel::closeEvent(QCloseEvent* e) {
-    if (indexing_.load()) appendLog(t("closing"));
+    if (indexing_.load()) {
+        appendLog(t("closing"));
+        cancelFlag_.store(true);
+    }
     if (controller_) controller_->stop();
     if (indexThread_.joinable()) indexThread_.join();
     syncPrefs();

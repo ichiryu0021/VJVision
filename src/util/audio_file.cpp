@@ -66,8 +66,6 @@ drflac_bool32 flacSeek(void* ud, int offset, drflac_seek_origin origin) {
     int whence = SEEK_SET;
     if (origin == DRFLAC_SEEK_CUR) whence = SEEK_CUR;
     else if (origin == DRFLAC_SEEK_END) whence = SEEK_END;
-    // NB: dr_flac probes file size with seek(0, END) + tell during init —
-    // mapping END to CUR breaks open() for every file.
     return fseek((FILE*)ud, offset, whence) == 0
                ? DRFLAC_TRUE : DRFLAC_FALSE;
 }
@@ -78,13 +76,47 @@ drflac_bool32 flacTell(void* ud, drflac_int64* pos) {
     return DRFLAC_TRUE;
 }
 
+// Skip one ID3v2 tag at the start of f. Leaves the file positioned at the
+// first byte after the ID3 block (the "fLaC" signature). Returns the number
+// of bytes skipped, or 0 if no ID3 header was present.
+static long skipId3v2(FILE* f) {
+    unsigned char hdr[10] = {0};
+    if (fread(hdr, 1, 10, f) != 10) { fseek(f, 0, SEEK_SET); return 0; }
+    if (hdr[0] != 'I' || hdr[1] != 'D' || hdr[2] != '3') { fseek(f, 0, SEEK_SET); return 0; }
+    // ID3v2 header layout (10 bytes):
+    //   [0..2] "ID3"  [3] ver  [4] rev  [5] flags  [6..9] size (synchsafe)
+    long size = 0;
+    for (int i = 6; i < 10; ++i) size = (size << 7) | (hdr[i] & 0x7F);
+    // Flag bit 4 (0x10) means an extended header follows — another 10 bytes.
+    if (hdr[5] & 0x10) size += 10;
+    long total = 10 + size;
+    fseek(f, total, SEEK_SET);
+    return total;
+}
+
 LoadedAudio loadFlac(const std::string& path) {
     FILE* f = nullptr;
     if (_wfopen_s(&f, pathutil::utf8ToWide(path).c_str(), L"rb") != 0 || !f)
         throw std::runtime_error("dr_flac: cannot open " + path);
 
-    drflac* flac = drflac_open(flacRead, flacSeek, flacTell, f, nullptr);
-    if (!flac) { fclose(f); throw std::runtime_error("dr_flac: failed to open " + path); }
+    // Some FLAC files carry an ID3v2 metadata tag before the "fLaC" signature.
+    // dr_flac's native ID3-skipper can mis-handle certain configurations,
+    // and subsequent FILE* seeks may rewind past our skip point. To avoid
+    // both problems, we copy the FLAC stream (after any ID3 prefix) into a
+    // contiguous in-memory buffer and let dr_flac parse from there.
+    fseek(f, 0, SEEK_END);
+    long fileSize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    long skip = skipId3v2(f);
+    long flacSize = fileSize - skip;
+    if (flacSize <= 0) { fclose(f); throw std::runtime_error("dr_flac: empty after ID3 skip: " + path); }
+
+    std::vector<uint8_t> buf(flacSize);
+    fread(buf.data(), 1, flacSize, f);
+    fclose(f);  // close before drflac_open_memory — it doesn't need the FILE*
+
+    drflac* flac = drflac_open_memory(buf.data(), flacSize, nullptr);
+    if (!flac) throw std::runtime_error("dr_flac: failed to open " + path);
 
     int channels = flac->channels;
     int rate = flac->sampleRate;
@@ -96,7 +128,6 @@ LoadedAudio loadFlac(const std::string& path) {
         pcm.insert(pcm.end(), chunk, chunk + got * channels);
 
     drflac_close(flac);
-    fclose(f);
     if (pcm.empty()) throw std::runtime_error("dr_flac: no audio in " + path);
     return fromInterleavedS16(pcm.data(), pcm.size() / channels, channels, rate);
 }

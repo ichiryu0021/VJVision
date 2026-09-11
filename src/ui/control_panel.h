@@ -53,6 +53,7 @@ private:
     void refreshColorBtn();              // apply prefs_.bgColor to button
     void browseMusicDir();
     void startIndex();
+    void cancelIndex();
     void toggleViz();
     QString t(const char* key) const;
     // Auto-discover VJVision.db inside dataDir
@@ -106,6 +107,7 @@ private:
 
     std::thread indexThread_;
     std::atomic<bool> indexing_{false};
+    std::atomic<bool> cancelFlag_{false};
 
     QGroupBox* grpAudio_ = nullptr;
     QGroupBox* grpLib_ = nullptr;

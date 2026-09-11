@@ -63,6 +63,8 @@ vcpkg_installed/
 # --- Build artifacts (windeployqt + Release bundles) ---
 deploy/
 release/
+test/
+installer_output/
 
 # --- Trae IDE workspace (local) ---
 .trae/

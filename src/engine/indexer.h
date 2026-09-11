@@ -6,6 +6,7 @@
 // in the parallel pass are retried once single-threaded — transient
 // decoder/IO hiccups then recover without a full re-run.
 #pragma once
+#include <atomic>
 #include <functional>
 #include <string>
 #include <vector>
@@ -32,9 +33,12 @@ class Indexer {
 public:
     using ProgressCb = std::function<void(const IndexProgress&)>;
 
-    // workers <= 0 → auto: min(hardware_concurrency, 8).
+    // workers <= 0 → auto: hardware_concurrency() (uses all cores).
+    // cancel: optional flag — when set to true, indexing stops after
+    // current file and returns partial results.
     IndexResult indexDirectory(const std::string& dir, FpDb& db,
-                               int workers, ProgressCb cb);
+                               int workers, ProgressCb cb,
+                               const std::atomic<bool>* cancel = nullptr);
 };
 
 } // namespace vj

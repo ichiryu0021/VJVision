@@ -28,8 +28,21 @@ public:
     int insertSong(const std::string& name, const std::string& sha1, int totalHashes,
                    const std::string& filePath);
 
-    // Bulk-insert fingerprints for a song (transaction-wrapped).
+    // Bulk-insert fingerprints for a song.
+    // Caller must wrap in beginTx()/commitTx() for performance.
     void insertHashes(int songId, const std::vector<Fingerprint>& hashes);
+
+    // Transaction control — wrap bulk operations for dramatic speedup.
+    void beginTx();
+    void commitTx();
+
+    // Bulk-mode: drops the hash index and bumps cache for fast inserts.
+    // Must be called inside an active transaction.
+    void dropIndexForBulk();
+    // Recreates the hash index after bulk inserts. Call before commitTx.
+    void recreateIndexAfterBulk();
+    // Set large cache for bulk operations (call before beginTx).
+    void setCacheSize(int mb);
 
     // Look up all (song_id, db_offset) rows matching the given query hashes.
     // Each returned hit also carries the query_offset of the hash that matched it,

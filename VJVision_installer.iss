@@ -1,12 +1,12 @@
 ; =============================================================================
-; VJVision 2.0.1 — Windows Installer Script (Inno Setup 6)
+; VJVision 2.0.3 — Windows Installer Script (Inno Setup 6)
 ; Build: ISCC.exe VJVision_installer.iss
 ;   (typical path: "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" or
 ;    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")
 ; =============================================================================
 
 #define MyAppName       "VJVision"
-#define MyAppVersion    "2.0.2"
+#define MyAppVersion    "2.0.3"
 #define MyAppPublisher  "Ichiryu"
 #define MyAppExeName    "VJVision.exe"
 #define MyAppSourceDir  "deploy"

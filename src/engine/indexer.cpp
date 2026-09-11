@@ -46,7 +46,8 @@ JobResult processFile(const std::string& path) {
 } // namespace
 
 IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
-                                    int workers, ProgressCb cb) {
+                                    int workers, ProgressCb cb,
+                                    const std::atomic<bool>* cancel) {
     IndexResult summary;
 
     // --- 1. Discover candidate files -------------------------------
@@ -76,7 +77,6 @@ IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
     if (workers <= 0) {
         unsigned hc = std::thread::hardware_concurrency();
         workers = hc ? (int)hc : 4;
-        if (workers > 8) workers = 8;
     }
     if (workers > (int)files.size()) workers = (int)files.size();
     if (workers < 1) workers = 1;
@@ -96,7 +96,11 @@ IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
                 std::to_string(todo.size()) + " to process with " +
                 std::to_string(workers) + " worker(s)"});
 
-    // --- 3. Parallel fingerprinting, serial DB writes --------------
+    // --- 3. Parallel fingerprinting, bulk DB writes --------------
+    // Single transaction + dropped index = maximal insert throughput.
+    db.setCacheSize(512);
+    db.beginTx();
+    db.dropIndexForBulk();
     std::atomic<size_t> nextIdx{0};
     std::mutex resultMtx;
     std::condition_variable resultCv;
@@ -106,6 +110,7 @@ IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
 
     auto worker = [&]() {
         while (true) {
+            if (cancel && cancel->load()) break;
             size_t idx = nextIdx.fetch_add(1);
             if (idx >= todo.size()) break;
             JobResult r = processFile(todo[idx]);
@@ -128,10 +133,13 @@ IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
         {
             std::unique_lock<std::mutex> lk(resultMtx);
             resultCv.wait(lk, [&]() {
-                return !results.empty() || finished.load() == workers;
+                return !results.empty() || finished.load() == workers
+                       || (cancel && cancel->load());
             });
+            if (cancel && cancel->load()) break;
             batch.swap(results);
         }
+        // DB writes happen inside the single bulk transaction opened above.
         for (auto& r : batch) {
             ++consumed;
             if (r.ok) {
@@ -151,7 +159,17 @@ IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
     }
     for (auto& t : pool) t.join();
 
-    // --- 4. Single-threaded retry for failed files -----------------
+    // --- 4. Rebuild index and commit the bulk transaction ----------
+    db.recreateIndexAfterBulk();
+    db.commitTx();
+
+    if (cancel && cancel->load()) {
+        if (cb) cb({summary.skipped + summary.indexedOk + summary.failed,
+                    summary.totalFiles, "Cancelled"});
+        return summary;
+    }
+
+    // --- 5. Single-threaded retry for failed files -----------------
     if (!summary.failedPaths.empty()) {
         std::vector<std::string> retry = std::move(summary.failedPaths);
         summary.failedPaths.clear();
@@ -159,6 +177,7 @@ IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
         if (cb) cb({summary.totalFiles, summary.totalFiles,
                     "Retrying " + std::to_string(retry.size()) +
                     " failed file(s) single-threaded..."});
+        db.beginTx();
         for (const auto& path : retry) {
             JobResult r = processFile(path);
             if (r.ok) {
@@ -174,6 +193,7 @@ IndexResult Indexer::indexDirectory(const std::string& dir, FpDb& db,
                             "[RETRY FAIL] " + path + ": " + r.error});
             }
         }
+        db.commitTx();
     }
 
     return summary;
