@@ -361,7 +361,20 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
         size_t fpsCount = 0;
         if (hasDb) {
             auto snap = ring.readLatest(windowSamples);
-            float gain = 0.95f / peak;
+            // Normalize against the 12 s query window's OWN peak instead of
+            // the capture block's 0.5 s peak: when the last 0.5 s is a quiet
+            // intro/passage, 0.95/peak could reach 100x-1000x and lift the
+            // noise floor into spurious spectral peaks — query hash count
+            // (the confidence denominator) exploded, confidence diluted below
+            // the accept gate, and recognition needed extra 2 s ticks. Cap
+            // gain at 30x (+30 dB) so near-silence never amplifies noise.
+            float snapPeak = 0.f;
+            for (size_t i = 0; i < windowSamples; ++i) {
+                float a = snap[i] < 0.f ? -snap[i] : snap[i];
+                if (a > snapPeak) snapPeak = a;
+            }
+            if (snapPeak < 1e-6f) snapPeak = peak;  // defensive; audible branch already guarantees peak >= 1e-4
+            float gain = (std::min)(30.f, 0.95f / snapPeak);
             for (size_t i = 0; i < windowSamples; ++i) {
                 float v = snap[i] * gain;
                 if (v > 1.f) v = 1.f;

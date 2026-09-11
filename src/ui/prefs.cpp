@@ -73,7 +73,24 @@ Prefs Prefs::load() {
             p.standbyPath = o.value("standbyPath").toString();
             p.bgVideoPath = o.value("bgVideoPath").toString();
             p.bgMode = (int)o.value("bgMode").toDouble(0);
-            p.fxTexture = (int)o.value("fxTexture").toDouble(0);
+            // v2.1+: fxTexture is an independent overlay (-1 = off).
+            // Old files had it as a bgMode==2-only selector defaulting to 0.
+            const int ver = (int)o.value("prefsVersion").toDouble(0);
+            p.fxTexture = (int)o.value("fxTexture").toDouble(ver >= 2 ? -1 : 0);
+            // v1 → v2 migration: bgMode 2 ("rhythm texture" as a bg source)
+            // no longer exists. Users who used it keep the texture playing
+            // over the default bg; everyone else gets the new default (off),
+            // since their stored fxTexture was never active before.
+            if (ver < 2) {
+                if (p.bgMode == 2) {
+                    p.bgMode = 0;
+                } else {
+                    p.fxTexture = -1;
+                }
+            }
+            if (p.bgMode != 0 && p.bgMode != 1) p.bgMode = 0;
+            if (p.fxTexture < -1 || p.fxTexture > 2) p.fxTexture = -1;
+            p.prefsVersion = 2;
             p.performanceMode = (int)o.value("performanceMode").toDouble(0);
             p.bgOverlayDepth = (float)o.value("bgOverlayDepth").toDouble(p.bgOverlayDepth);
             p.bgColor = o.value("bgColor").toString();
@@ -111,6 +128,7 @@ void Prefs::save() const {
     o["bgVideoPath"] = bgVideoPath;
     o["bgMode"] = bgMode;
     o["fxTexture"] = fxTexture;
+    o["prefsVersion"] = prefsVersion;
     o["performanceMode"] = performanceMode;
     o["bgOverlayDepth"] = bgOverlayDepth;
     o["bgColor"] = bgColor;

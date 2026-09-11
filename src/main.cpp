@@ -23,6 +23,7 @@
 #include "util/tags.h"
 #include "util/path_util.h"
 #include "util/audio_file.h"
+#include "util/version.h"
 #ifdef VJVC_WITH_QT
 #include <QApplication>
 #include <QCoreApplication>
@@ -324,6 +325,11 @@ static int listScreensCmd(int argc, char** argv) {
 int main(int argc, char** argv) {
     setvbuf(stdout, nullptr, _IONBF, 0); // unbuffered: output survives kill
     setvbuf(stderr, nullptr, _IONBF, 0);
+
+    // Stamp the version on an inherited console (launched from a terminal).
+    // The GUI build is a WIN32-subsystem app; started by double-click it has
+    // no console and this call is a harmless no-op.
+    SetConsoleTitleW(L"VJVision " VJVISION_VERSION_W);
 
     // Rebuild argv as UTF-8 (CRT narrow argv uses the ANSI codepage on
     // Windows; library paths / DB paths with Chinese characters must survive).

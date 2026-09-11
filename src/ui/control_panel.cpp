@@ -3,6 +3,7 @@
 #include "../audio/wasapi_capture.h"
 #include "../engine/indexer.h"
 #include "../fp/fp_db.h"
+#include "../util/version.h"
 
 #include <QApplication>
 #include <QCloseEvent>
@@ -22,6 +23,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QThread>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -62,6 +64,7 @@ const char* tr2(const QString& lang, const char* key) {
         {"bgCustom",       "自定义",                       "Custom"},
         {"bgFx",           "节奏纹理",                     "Rhythm texture"},
         {"fxTexture",      "纹理",                         "Texture"},
+        {"fxOff",          "关",                           "Off"},
         {"fxPulse",        "律动波场",                     "Pulse"},
         {"fxBreath",       "中央呼吸",                     "Breath"},
         {"fxHorizon",      "地平线",                       "Horizon"},
@@ -284,24 +287,26 @@ void ControlPanel::buildUi() {
             logoPlayingSlider_->setValue(30);
         });
     }
-    // Background source mode: Default (built-in) / Custom / Rhythm texture (fx)
+    // Background source: Default (built-in) / Custom media.
+    // v2.1: rhythm texture is NO LONGER a bg source — it is an independent
+    // overlay (own row below) that layers on top of ANY background.
     auto* bgModeCombo = new QComboBox;
-    // Display order: Default top, FX middle, Custom bottom. The item DATA
-    // carries the bgMode value (0/1/2) so display order and stored mode are
-    // decoupled.
     bgModeCombo->addItem(t("bgDefault"), 0);
-    bgModeCombo->addItem(t("bgFx"), 2);
     bgModeCombo->addItem(t("bgCustom"), 1);
     bgModeCombo_ = bgModeCombo;
     visForm->addRow(lbl("bgMode"), bgModeCombo);
 
-    // v2.0.4: fx texture + performance mode selectors (shown when bgMode==2)
+    // Rhythm texture selector — permanent independent row:
+    // Off / Pulse / Breath / Horizon (data = fxTexture: -1/0/1/2).
     fxTextureCombo_ = new QComboBox;
+    fxTextureCombo_->addItem(t("fxOff"), -1);
     fxTextureCombo_->addItem(t("fxPulse"), 0);
     fxTextureCombo_->addItem(t("fxBreath"), 1);
     fxTextureCombo_->addItem(t("fxHorizon"), 2);
-    connect(fxTextureCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int idx) {
-        prefs_.fxTexture = idx; syncPrefs();
+    connect(fxTextureCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int) {
+        prefs_.fxTexture = fxTextureCombo_->currentData().toInt();
+        perfModeCombo_->setEnabled(prefs_.fxTexture >= 0);
+        syncPrefs();
         if (controller_ && controller_->isRunning())
             controller_->setFxTexture(prefs_.fxTexture);
     });
@@ -319,8 +324,10 @@ void ControlPanel::buildUi() {
     // Row label — changes: "bgColor" (Default) or "bgVideo" (Custom)
     bgRowLabel_ = new QLabel;
 
-    // Row that morphs between: Default → color picker button, Custom → file browse
-    auto* bgRow = new QHBoxLayout();
+    // Both field pages live permanently inside a QStackedWidget occupying
+    // ONE fixed cell: its size hint is the MAX of the two pages, so switching
+    // bg source never reflows the layout / shifts the window (the old
+    // tear-down/rebuild of a QHBoxLayout changed the row's minimum width).
     bgColorBtn_ = new QPushButton;
     bgColorBtn_->setFixedWidth(80);
     bgVideoEdit_ = new QLineEdit;
@@ -349,42 +356,47 @@ void ControlPanel::buildUi() {
         bgVideoEdit_->clear();
         syncPrefs();
     });
-    // Dynamic row (label + contents)
-    auto* bgRowWidget = new QWidget;
-    bgRowWidget->setLayout(bgRow);
+
+    // Page 0 — Default (built-in): color picker, left-aligned.
+    auto* bgColorPage = new QWidget;
+    auto* bgColorRow = new QHBoxLayout(bgColorPage);
+    bgColorRow->setContentsMargins(0, 0, 0, 0);
+    bgColorRow->addWidget(bgColorBtn_);
+    bgColorRow->addStretch(1);
+    // Page 1 — Custom media: path edit + browse + clear.
+    auto* bgVideoPage = new QWidget;
+    auto* bgVideoRow = new QHBoxLayout(bgVideoPage);
+    bgVideoRow->setContentsMargins(0, 0, 0, 0);
+    bgVideoRow->addWidget(bgVideoEdit_, 1);
+    bgVideoRow->addWidget(browseBgBtn_);
+    bgVideoRow->addWidget(clearBgBtn_);
+
+    auto* bgStack = new QStackedWidget;
+    bgStack->addWidget(bgColorPage);   // index 0 = default
+    bgStack->addWidget(bgVideoPage);   // index 1 = custom
+    // Lock height to the taller page so vertical geometry never shifts either.
+    bgStack->setFixedHeight(qMax(bgColorPage->sizeHint().height(),
+                                 bgVideoPage->sizeHint().height()));
+
     const QString labelBgVideo = lbl("bgVideo")->text();
     const QString labelBgColor = lbl("bgColor")->text();
-    const QString labelFxTexture = lbl("fxTexture")->text();
-    const QString labelPerfMode = lbl("perfMode")->text();
-    auto updateBgRowForMode = [bgRow, this, labelBgVideo, labelBgColor,
-                               labelFxTexture, labelPerfMode](int mode) {
-        // Clear layout
-        QLayoutItem* item;
-        while ((item = bgRow->takeAt(0)) != nullptr) {
-            if (item->widget()) item->widget()->setParent(nullptr);
-            delete item;
-        }
-        if (mode == 1) {
-            // Custom background media
-            bgRowLabel_->setText(labelBgVideo);
-            bgRow->addWidget(bgVideoEdit_, 1);
-            bgRow->addWidget(browseBgBtn_);
-            bgRow->addWidget(clearBgBtn_);
-        } else if (mode == 2) {
-            // Rhythm texture (fx) — show texture + perf selectors side by side
-            bgRowLabel_->setText(labelFxTexture);
-            bgRow->addWidget(fxTextureCombo_, 1);
-            auto* perfLabel = new QLabel(labelPerfMode);
-            bgRow->addWidget(perfLabel);
-            bgRow->addWidget(perfModeCombo_, 1);
-        } else {
-            // Default (built-in) — color picker
-            bgRowLabel_->setText(labelBgColor);
-            bgRow->addWidget(bgColorBtn_);
-            bgRow->addStretch(1);
-        }
+    auto updateBgRowForMode = [this, bgStack, labelBgVideo, labelBgColor](int mode) {
+        bgStack->setCurrentIndex(mode == 1 ? 1 : 0);
+        bgRowLabel_->setText(mode == 1 ? labelBgVideo : labelBgColor);
     };
-    visForm->addRow(bgRowLabel_, bgRowWidget);
+    visForm->addRow(bgRowLabel_, bgStack);
+
+    // Permanent rhythm-texture overlay row — independent of bg source.
+    // Texture combo (Off / Pulse / Breath / Horizon) + perf selector.
+    auto* fxRow = new QHBoxLayout();
+    fxRow->addWidget(fxTextureCombo_, 1);
+    fxRow->addWidget(lbl("perfMode"));
+    fxRow->addWidget(perfModeCombo_, 1);
+    auto* fxRowWidget = new QWidget;
+    fxRowWidget->setLayout(fxRow);
+    visForm->addRow(lbl("bgFx"), fxRowWidget);
+    // Perf only matters while a texture is active (default selection = Off).
+    perfModeCombo_->setEnabled(false);
 
     // Overlay depth slider (0 = no dim, 1 = fully black) — ALWAYS enabled
     auto* overlayRow = new QHBoxLayout();
@@ -503,7 +515,8 @@ void ControlPanel::buildUi() {
 }
 
 void ControlPanel::retranslate() {
-    setWindowTitle(t("appTitle"));
+    setWindowTitle(t("appTitle") + QStringLiteral(" v") +
+                   QString::fromUtf8(kAppVersion));
     grpAudio_->setTitle(t("grpAudio"));
     grpLib_->setTitle(t("grpLib"));
     grpVisual_->setTitle(t("grpVisual"));
@@ -522,11 +535,11 @@ void ControlPanel::retranslate() {
     vizModeCombo_->setItemText(1, t("vizRadial"));
     vizModeCombo_->setItemText(2, t("vizWaterfall"));
     bgModeCombo_->setItemText(0, t("bgDefault"));
-    bgModeCombo_->setItemText(1, t("bgFx"));
-    bgModeCombo_->setItemText(2, t("bgCustom"));
-    fxTextureCombo_->setItemText(0, t("fxPulse"));
-    fxTextureCombo_->setItemText(1, t("fxBreath"));
-    fxTextureCombo_->setItemText(2, t("fxHorizon"));
+    bgModeCombo_->setItemText(1, t("bgCustom"));
+    fxTextureCombo_->setItemText(0, t("fxOff"));
+    fxTextureCombo_->setItemText(1, t("fxPulse"));
+    fxTextureCombo_->setItemText(2, t("fxBreath"));
+    fxTextureCombo_->setItemText(3, t("fxHorizon"));
     perfModeCombo_->setItemText(0, t("perfAuto"));
     perfModeCombo_->setItemText(1, t("perfHigh"));
     perfModeCombo_->setItemText(2, t("perfMid"));
@@ -551,7 +564,8 @@ void ControlPanel::loadPrefsToUi() {
     standbyEdit_->setText(prefs_.standbyPath);
     bgVideoEdit_->setText(prefs_.bgVideoPath);
     bgModeCombo_->setCurrentIndex(bgModeCombo_->findData(prefs_.bgMode));
-    fxTextureCombo_->setCurrentIndex(prefs_.fxTexture);
+    fxTextureCombo_->setCurrentIndex(fxTextureCombo_->findData(prefs_.fxTexture));
+    perfModeCombo_->setEnabled(prefs_.fxTexture >= 0);
     perfModeCombo_->setCurrentIndex(prefs_.performanceMode);
     overlaySlider_->setValue(int(qBound(0.f, prefs_.bgOverlayDepth, 1.f) * 100.f));
     overlayLabel_->setText(QStringLiteral("%1%").arg(overlaySlider_->value()));
@@ -576,8 +590,8 @@ void ControlPanel::loadPrefsToUi() {
 void ControlPanel::syncPrefs() {
     prefs_.musicDir = dirEdit_->text().trimmed();
     prefs_.standbyPath = standbyEdit_->text().trimmed();
-    prefs_.bgMode = bgModeCombo_->currentData().toInt();   // data: 0=default, 1=custom, 2=fx
-    prefs_.fxTexture = fxTextureCombo_->currentIndex();
+    prefs_.bgMode = bgModeCombo_->currentData().toInt();   // data: 0=default, 1=custom
+    prefs_.fxTexture = fxTextureCombo_->currentData().toInt(); // data: -1=off, 0/1/2 textures
     prefs_.performanceMode = perfModeCombo_->currentIndex();
     prefs_.bgVideoPath = bgVideoEdit_->text().trimmed();
     prefs_.deviceIdx = deviceCombo_->currentIndex() > 0

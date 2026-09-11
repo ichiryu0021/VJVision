@@ -14,9 +14,12 @@ struct Prefs {
     int deviceIdx = -1;        // capture endpoint (-1 = default loopback)
     QString standbyPath;       // optional standby logo file
     QString bgVideoPath;       // custom background media (GIF/WEBP/MP4/MOV) — used only when bgMode==1
-    int bgMode = 0;            // 0 = default (built-in), 1 = custom, 2 = fx (rhythm texture)
-    int fxTexture = 0;         // 0 = pulse, 1 = ripple, 2 = particles — used when bgMode==2
+    int bgMode = 0;            // 0 = default (built-in), 1 = custom
+    // Rhythm texture is an INDEPENDENT overlay: works on top of any bg
+    // source (default/custom/future). -1 = off, 0 = pulse, 1 = breath, 2 = horizon
+    int fxTexture = -1;
     int performanceMode = 0;   // 0 = auto, 1 = high, 2 = mid, 3 = low — fx perf scaling
+    int prefsVersion = 2;      // migration marker (v2.1: independent fxTexture)
     float bgOverlayDepth = 0.5f; // 0 = no dim, 1 = fully black — dark overlay for legibility
     QString bgColor = "#000000"; // default background color (hex "#RRGGBB") — used when bgMode==0
     QString language = "zh";   // "zh" | "en"

@@ -178,13 +178,13 @@ public:
 
     int bgMode() const { return bgMode_; }
     Q_INVOKABLE void setBgMode(int v) {
-        v = qBound(0, v, 2);
+        v = qBound(0, v, 1);   // 0 = default, 1 = custom
         if (bgMode_ != v) { bgMode_ = v; emit bgModeChanged(); }
         else emit bgModeChanged();
     }
     int fxTexture() const { return fxTexture_; }
     Q_INVOKABLE void setFxTexture(int v) {
-        v = qBound(0, v, 2);
+        v = qBound(-1, v, 2);  // -1 = off, 0 = pulse, 1 = breath, 2 = horizon
         if (fxTexture_ != v) { fxTexture_ = v; emit fxTextureChanged(); }
         else emit fxTextureChanged();
     }
@@ -266,7 +266,7 @@ private:
     QVariantList effectiveColors_; // flat [r0,g0,b0, r1,g1,b1, r2,g2,b2]
     int vizMode_ = 0;
     int bgMode_ = 0;
-    int fxTexture_ = 0;
+    int fxTexture_ = -1;   // -1 = off (independent overlay since v2.1)
     int performanceMode_ = 0;
     float logoSizeStandby_ = 1.0f;
     float logoSizePlaying_ = 0.30f;

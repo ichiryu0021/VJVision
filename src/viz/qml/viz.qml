@@ -74,7 +74,7 @@ Window {
             : viz.effectiveColors
         readonly property int vizMode: root._mock ? 0 : viz.vizMode
         readonly property int bgMode: root._mock ? 0 : viz.bgMode
-        readonly property int fxTexture: root._mock ? 0 : viz.fxTexture
+        readonly property int fxTexture: root._mock ? -1 : viz.fxTexture
         readonly property int performanceMode: root._mock ? 0 : viz.performanceMode
         readonly property real logoSizeStandby: root._mock ? 1.0 : viz.logoSizeStandby
         readonly property real logoSizePlaying: root._mock ? 0.29 : viz.logoSizePlaying
@@ -439,27 +439,27 @@ Window {
     }
 
     // ---------- Layered background (ALL direct Window children — no Item wrappers!) ----------
-    // Qt Quick: EARLIER declaration = LOWER z = painted FIRST (back).
-    //           LATER declaration = HIGHER z = painted LAST (front).
-    // Order (back → front):
-    //   1. Solid base color "#0a0f1a" (deep blue fallback, bottom-most)
-    //   2. Ripple Canvas (semi-transparent animated color wash — OVERPAINTS bg slightly)
-    //   2b. FX texture Canvas (fx mode only — reactive strokes ON TOP of ripple)
-    //   3. Custom background media (AnimatedImage or VideoOutput — on top of ripple/fx IF present)
-    //   4. Dark vignette (gradient overlay — always top-most background effect)
-    //   5. Spectrum bars / track info / logo ... (content, not background)
+    // Stacking is set EXPLICITLY via `z` (same z → later declaration wins):
+    //   back  z=-4  Solid base color
+    //        z=-3  Ripple Canvas (semi-transparent animated color wash)
+    //        z=-2  Dark overlay (黑色遮罩, dims ripple — visible through transparent media)
+    //        z=-1  Custom background media (AnimatedImage / VideoOutput — COVERS the mask)
+    //        z= 0  FX texture Canvas (independent rhythm overlay ON TOP of ANY background)
+    //   front z= 0  Spectrum / cover / info ... (declared later → above fxCanvas)
 
         // [1] Solid base — bottom-most. Always visible, even with custom bg (custom bg covers it).
         // Uses complement of track hue, darkened to near-black so foreground is legible.
         Rectangle {
+            z: -4
             anchors.fill: parent
             color: root.baseColor
         }
 
         // [2] Ripple Canvas — semi-transparent color wash. ON TOP of base.
-        //     IF custom bg present, ripple blends on top of video (may dim it slightly).
+        //     With custom media it sits behind it; transparent GIFs let it show through.
         Canvas {
             id: ripple
+            z: -3
             anchors.fill: parent
             contextType: "2d"
             renderStrategy: Canvas.Immediate
@@ -579,18 +579,17 @@ Window {
             }
         }   // ← end of ripple Canvas
 
-        // [2b] v2.1.0: FX texture Canvas — shown only when bgMode==2 (rhythm
-        //     texture). Sits ABOVE the default ripple wash and BELOW custom
-        //     media / dark overlay / song content. 3 textures:
-        //     pulse / breath / horizon — selected by mx.fxTexture.
+        // [2b] v2.1: FX texture Canvas — INDEPENDENT rhythm overlay. Stacks
+        //     ABOVE every background (ripple, dark mask, custom media) and
+        //     BELOW song content. 3 textures: pulse / breath / horizon —
+        //     selected by mx.fxTexture; -1 = Off (hidden → zero CPU cost).
         //     Performance mode (mx.performanceMode) scales params.
-        //     Hidden in bgMode 0/1 → zero CPU cost.
         Canvas {
             id: fxCanvas
             anchors.fill: parent
             contextType: "2d"
             renderStrategy: Canvas.Immediate
-            visible: mx.bgMode === 2
+            visible: mx.fxTexture >= 0
             opacity: 1.0
 
             // --- Performance scaling (high/mid/low) ---
@@ -891,8 +890,10 @@ Window {
             }
         }   // ← end of fxCanvas
 
-        // [3] Custom background — ON TOP of ripple, BEHIND dark-dim overlay.
-        // ALL components here are direct Window children (no Item wrapper).
+        // [3] Custom background — ABOVE the dark mask (z=-1 vs z=-2), so the
+        // media is never dimmed itself; the mask only dims the ripple showing
+        // through transparent GIF/WEBP areas. ALL components here are direct
+        // Window children (no Item wrapper).
         //
         // AnimatedImage path (GIF/WEBP/PNG/JPG):
         //   - Plain AnimatedImage when NO blur needed
@@ -901,6 +902,7 @@ Window {
         //   so MP4 path is always plain (blur limitation for MP4 only).
         AnimatedImage {
             id: bgAnimated
+            z: -1
             anchors.fill: parent
             // ALWAYS visible — MultiEffect needs it as source even when blur is ON.
             // When blur ON, MultiEffect renders on TOP (higher z) so user sees the blurred version.
@@ -928,15 +930,17 @@ Window {
         }
         VideoOutput {
             id: bgVideoOut
+            z: -1
             anchors.fill: parent
             visible: mx.bgVideoPath !== "" && root.bgMediaType === 2
             fillMode: VideoOutput.PreserveAspectCrop
         }
 
-        // [4] Dark overlay — ONLY shown when Custom bg media is present.
-        // Depth driven by mx.bgOverlayDepth (0..1). 0 = no dim, 1 = fully black.
-        // Default ripple background should NOT be dimmed — it is its own visual.
+        // [4] Dark overlay — BELOW custom media (z=-2), ABOVE ripple (z=-3).
+        // Dims the default ripple visible through transparent areas of custom
+        // media; opaque media simply covers it. Depth from mx.bgOverlayDepth.
         Rectangle {
+            z: -2
             anchors.fill: parent
             visible: mx.bgVideoPath !== ""
             color: {

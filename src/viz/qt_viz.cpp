@@ -1,5 +1,7 @@
 #include "qt_viz.h"
 
+#include "../util/version.h"
+
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -204,6 +206,8 @@ bool QtVizSink::recreateEngine() {
         return false;
     }
     vizWindow_ = window;
+    window->setTitle(QStringLiteral("VJVision Visualizer v") +
+                     QString::fromUtf8(kAppVersion));
 
     // --- TDR recovery hook ---
     // sceneGraphError fires on GPU context loss (TDR, driver crash, etc.)

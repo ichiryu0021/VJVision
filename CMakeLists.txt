@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.21)
 project(VJVision VERSION 2.1.0 LANGUAGES C CXX)
 
 # VJVision 2.0 — C++ rewrite (v1 was Python/dejavu).
-set(VJVISION_VERSION "2.1.0" CACHE STRING "VJVision version string")
+# Version single source of truth: project(VERSION ...) on line 2.
+# VJVISION_VERSION is force-derived from it and injected into the binary
+# as VJVISION_VERSION_STR (util/version.h) so every build is stamped.
+set(VJVISION_VERSION "${PROJECT_VERSION}" CACHE STRING "VJVision version string" FORCE)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -55,6 +58,9 @@ if(VJVC_WITH_QT)
 endif()
 
 target_include_directories(VJVision PRIVATE src)
+
+# Stamp every build with the CMake project version (see util/version.h).
+target_compile_definitions(VJVision PRIVATE VJVISION_VERSION_STR="${VJVISION_VERSION}")
 
 # ole32: CoCreateInstance / COM (WASAPI device enumerator)
 # shell32: CommandLineToArgvW (wide argv → UTF-8)

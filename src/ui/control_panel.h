@@ -85,7 +85,7 @@ private:
     QPushButton* browseBgBtn_ = nullptr;
     QPushButton* clearBgBtn_ = nullptr;
     QComboBox* bgModeCombo_ = nullptr;
-    QComboBox* fxTextureCombo_ = nullptr;   // v2.0.4: fx texture selector (pulse/ripple/particles)
+    QComboBox* fxTextureCombo_ = nullptr;   // independent rhythm overlay: -1=off, 0=pulse, 1=breath, 2=horizon
     QComboBox* perfModeCombo_ = nullptr;     // v2.0.4: performance mode (auto/high/mid/low)
     QPushButton* bgColorBtn_ = nullptr;      // color picker for default-bg mode
     QLabel* bgRowLabel_ = nullptr;           // dynamic label: "bgColor" / "bgVideo"
