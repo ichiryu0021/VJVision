@@ -10,7 +10,26 @@
 [![Stars](https://img.shields.io/github/stars/ichiryu0021/VJVision?logo=github&label=Stars)](https://github.com/ichiryu0021/VJVision/stargazers)
 [![Language](https://img.shields.io/github/languages/top/ichiryu0021/VJVision?logo=c%2B%2B&label=C%2B%2B)](https://github.com/ichiryu0021/VJVision)
 
-[**下载最新版**](https://github.com/ichiryu0021/VJVision/releases/latest) · [**快速开始**](#快速开始--quick-start) · [**构建源码**](#从源码构建--build-from-source) · [**支持项目**](#支持项目--support)
+[**下载最新版**](https://github.com/ichiryu0021/VJVision/releases/latest) · [**快速开始**](#快速开始--quick-start) · [**构建源码**](#从源码构建--build-from-source)
+
+</div>
+
+---
+
+<div align="center">
+
+### 💖 支持项目 / Support
+
+如果 VJVision 帮到了你，欢迎赞赏或 Sponsor，让项目持续迭代。
+<br>*If VJVision has helped you, consider sponsoring to keep it evolving.*
+
+[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on%20GitHub-ichiryu0021-pink?logo=github)](https://github.com/sponsors/ichiryu0021)
+
+<br>
+
+<img src="docs/sponsor-wechat.png" alt="微信赞赏码" width="220">
+<br>
+<small>微信赞赏码 / WeChat sponsor code</small>
 
 </div>
 
@@ -31,7 +50,6 @@
 - [技术架构 / Architecture](#技术架构--architecture)
 - [版本历史 / Changelog](#版本历史--changelog)
 - [许可证 / License](#许可证--license)
-- [支持项目 / Support](#支持项目--support)
 
 ---
 
@@ -238,27 +256,4 @@ viz.qrc             ← qrc:/viz/qml/viz.qml（编译进 exe）
 ## 许可证 / License
 
 MIT — 详见 [LICENSE](LICENSE)。
-MIT — see [LICENSE](LICENSE).
-
----
-
-## 支持项目 / Support
-
-<div align="center">
-
-如果 VJVision 在你的现场演出中帮到了你，欢迎赞助一杯咖啡，让项目持续迭代。
-<br>*If VJVision has helped your live sets, consider sponsoring a coffee to keep it evolving.*
-
-[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on%20GitHub-ichiryu0021-pink?logo=github)](https://github.com/sponsors/ichiryu0021)
-
-### 中国用户 / For users in China
-
-| 支付宝 Alipay | 微信 WeChat |
-|:---:|:---:|
-| ![支付宝二维码](docs/sponsor-alipay.png) | ![微信二维码](docs/sponsor-wechat.png) |
-| *扫码赞助 / Scan to sponsor* | *扫码赞助 / Scan to sponsor* |
-
-</div>
-
-> 二维码图片请替换为真实收款码：`docs/sponsor-alipay.png` 与 `docs/sponsor-wechat.png`。
-> Replace the QR code images with your real payment codes: `docs/sponsor-alipay.png` and `docs/sponsor-wechat.png`.
+MIT — see [LICENSE](LICENSE)。

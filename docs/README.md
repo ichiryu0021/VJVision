@@ -1,17 +1,15 @@
-# 赞助二维码 / Sponsor QR Codes
+# 赞助二维码 / Sponsor QR Code
 
-将真实的收款二维码图片放入此目录：
+将真实的微信赞赏码图片放入此目录：
 
-- `sponsor-alipay.png` — 支付宝收款码
-- `sponsor-wechat.png` — 微信收款码
+- `sponsor-wechat.png` — 微信赞赏码
 
-替换后 README 中的赞助区会自动显示正确的二维码。
+替换后 README 顶部的赞助区会自动显示正确的二维码。
 
 ---
 
-Place your real payment QR code images in this folder:
+Place your real WeChat sponsor QR code image in this folder:
 
-- `sponsor-alipay.png` — Alipay payment code
-- `sponsor-wechat.png` — WeChat payment code
+- `sponsor-wechat.png` — WeChat sponsor code
 
-The sponsor section in the README will display the correct QR codes once replaced.
+The sponsor section at the top of the README will display the correct QR code once replaced.
