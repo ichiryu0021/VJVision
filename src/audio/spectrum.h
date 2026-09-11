@@ -18,7 +18,11 @@ public:
 
     // Analyze one window (expects FFT_SIZE samples; shorter inputs are
     // zero-padded at the front). Writes VIZ_SPECTRUM_BINS values 0..1.
-    void analyze(const float* samples, size_t n, float* outBins);
+    // If rawOut != nullptr it receives the same bands BEFORE the visual
+    // AGC is applied — use these for onset/beat detection, since the AGC
+    // gain recovery ramp contaminates frame differences post-AGC.
+    void analyze(const float* samples, size_t n, float* outBins,
+                 float* rawOut = nullptr);
 
     static constexpr int FFT_SIZE = 2048;
 

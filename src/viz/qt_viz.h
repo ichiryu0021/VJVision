@@ -29,6 +29,7 @@ class QtVizSink : public QObject, public VizSink {
     Q_PROPERTY(QString coverPath READ coverPath NOTIFY trackChanged)
     Q_PROPERTY(QVariantList bins READ bins NOTIFY binsChanged)
     Q_PROPERTY(float peak READ peak NOTIFY binsChanged)
+    Q_PROPERTY(float beat READ beat NOTIFY binsChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
     Q_PROPERTY(QString standbyPath READ standbyPath NOTIFY standbyPathChanged)
     Q_PROPERTY(QString bgVideoPath READ bgVideoPath NOTIFY bgVideoPathChanged)
@@ -62,7 +63,8 @@ public:
 
     // VizSink — safe to call from any thread.
     void onTrack(const TrackEvent& t) override;
-    void onSpectrum(const float* bins, int count, float peak) override;
+    void onSpectrum(const float* bins, int count, float peak,
+                    float beat = 0.f) override;
     void onStatus(VizStatus status) override;
 
     bool hasTrack() const { return hasTrack_; }
@@ -74,6 +76,7 @@ public:
     QString coverPath() const { return coverPath_; }
     QVariantList bins() const { return bins_; }
     float peak() const { return peak_; }
+    float beat() const { return beat_; }
     QString statusText() const { return statusText_; }
     QString standbyPath() const { return standbyPath_; }
     Q_INVOKABLE void setStandbyPath(const QString& p) {
@@ -227,7 +230,7 @@ signals:
     void sigTrack(bool valid, QString title, QString artist, QString album,
                   QString coverPath, bool tentative, float confidence,
                   QVariantList colors);
-    void sigSpectrum(QVariantList bins, float peak);
+    void sigSpectrum(QVariantList bins, float peak, float beat);
     void sigStatus(QString statusText);
 
     // GPU TDR / device-lost recovery lifecycle.
@@ -251,6 +254,7 @@ private:
     float confidence_ = 0.f;
     QVariantList bins_;
     float peak_ = 0.f;
+    float beat_ = 0.f;
     QString statusText_ = QStringLiteral("standby");
     QString standbyPath_;
     QString bgVideoPath_;

@@ -5,7 +5,7 @@
 // JSON object:
 //   {"type":"track","valid":true,"title":"...","artist":"...",
 //    "album":"...","confidence":0.42,"tentative":false}
-//   {"type":"spectrum","bins":[0.12,...64 values...],"peak":0.83}
+//   {"type":"spectrum","bins":[0.12,...64 values...],"peak":0.83,"beat":0.0}
 //   {"type":"status","state":"standby|listening|matching|mixing"}
 // Clients are write-only from our side; slow/disconnected clients are
 // dropped without affecting the in-process UI.
@@ -29,7 +29,8 @@ public:
     void stop();
 
     void onTrack(const TrackEvent& t) override;
-    void onSpectrum(const float* bins, int count, float peak) override;
+    void onSpectrum(const float* bins, int count, float peak,
+                    float beat = 0.f) override;
     void onStatus(VizStatus status) override;
 
     int clientCount();

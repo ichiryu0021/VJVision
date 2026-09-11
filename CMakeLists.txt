@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
-project(VJVision VERSION 2.0.4 LANGUAGES C CXX)
+project(VJVision VERSION 2.1.0 LANGUAGES C CXX)
 
 # VJVision 2.0 — C++ rewrite (v1 was Python/dejavu).
-set(VJVISION_VERSION "2.0.4" CACHE STRING "VJVision version string")
+set(VJVISION_VERSION "2.1.0" CACHE STRING "VJVision version string")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,6 +35,7 @@ add_executable(VJVision WIN32
     src/fp/align.cpp
     src/audio/wasapi_capture.cpp
     src/audio/spectrum.cpp
+    src/audio/beat_tracker.cpp
     src/engine/match_engine.cpp
     src/engine/indexer.cpp
     src/util/tags.cpp

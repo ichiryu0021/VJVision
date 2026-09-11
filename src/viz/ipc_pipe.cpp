@@ -158,14 +158,16 @@ void IpcVizSink::onTrack(const TrackEvent& t) {
     broadcast(ss.str());
 }
 
-void IpcVizSink::onSpectrum(const float* bins, int count, float peak) {
+void IpcVizSink::onSpectrum(const float* bins, int count, float peak,
+                            float beat) {
     std::ostringstream ss;
     ss << "{\"type\":\"spectrum\",\"bins\":[";
     for (int i = 0; i < count; ++i) {
         if (i) ss << ",";
         ss << bins[i];
     }
-    ss << "],\"peak\":" << peak << "}";
+    ss << "],\"peak\":" << peak
+       << ",\"beat\":" << beat << "}";
     broadcast(ss.str());
 }
 

@@ -63,8 +63,8 @@ const char* tr2(const QString& lang, const char* key) {
         {"bgFx",           "节奏纹理",                     "Rhythm texture"},
         {"fxTexture",      "纹理",                         "Texture"},
         {"fxPulse",        "律动波场",                     "Pulse"},
-        {"fxRipple",       "同心涟漪",                     "Ripple"},
-        {"fxParticles",    "粒子迸发",                     "Particles"},
+        {"fxBreath",       "中央呼吸",                     "Breath"},
+        {"fxHorizon",      "地平线",                       "Horizon"},
         {"perfMode",       "性能模式",                     "Performance"},
         {"perfAuto",       "自动",                         "Auto"},
         {"perfHigh",       "高",                           "High"},
@@ -286,17 +286,20 @@ void ControlPanel::buildUi() {
     }
     // Background source mode: Default (built-in) / Custom / Rhythm texture (fx)
     auto* bgModeCombo = new QComboBox;
+    // Display order: Default top, FX middle, Custom bottom. The item DATA
+    // carries the bgMode value (0/1/2) so display order and stored mode are
+    // decoupled.
     bgModeCombo->addItem(t("bgDefault"), 0);
-    bgModeCombo->addItem(t("bgCustom"), 1);
     bgModeCombo->addItem(t("bgFx"), 2);
+    bgModeCombo->addItem(t("bgCustom"), 1);
     bgModeCombo_ = bgModeCombo;
     visForm->addRow(lbl("bgMode"), bgModeCombo);
 
     // v2.0.4: fx texture + performance mode selectors (shown when bgMode==2)
     fxTextureCombo_ = new QComboBox;
     fxTextureCombo_->addItem(t("fxPulse"), 0);
-    fxTextureCombo_->addItem(t("fxRipple"), 1);
-    fxTextureCombo_->addItem(t("fxParticles"), 2);
+    fxTextureCombo_->addItem(t("fxBreath"), 1);
+    fxTextureCombo_->addItem(t("fxHorizon"), 2);
     connect(fxTextureCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int idx) {
         prefs_.fxTexture = idx; syncPrefs();
         if (controller_ && controller_->isRunning())
@@ -414,7 +417,8 @@ void ControlPanel::buildUi() {
     visForm->addRow(lbl("vizMode"), vizModeCombo_);
 
     connect(bgModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this,
-            [this, updateBgRowForMode](int m) {
+            [this, bgModeCombo, updateBgRowForMode](int) {
+                int m = bgModeCombo->currentData().toInt();
                 updateBgRowForMode(m);
                 bool custom = (m == 1);
                 overlaySlider_->setEnabled(custom);
@@ -423,7 +427,7 @@ void ControlPanel::buildUi() {
     // Initial state — Default mode disables overlay slider
     overlaySlider_->setEnabled(false);
     overlayLabel_->setEnabled(false);
-    updateBgRowForMode(bgModeCombo->currentIndex());
+    updateBgRowForMode(bgModeCombo->currentData().toInt());
     root->addWidget(grpVisual_);
 
     // --- Thresholds ------------------------------------------------------
@@ -518,11 +522,11 @@ void ControlPanel::retranslate() {
     vizModeCombo_->setItemText(1, t("vizRadial"));
     vizModeCombo_->setItemText(2, t("vizWaterfall"));
     bgModeCombo_->setItemText(0, t("bgDefault"));
-    bgModeCombo_->setItemText(1, t("bgCustom"));
-    bgModeCombo_->setItemText(2, t("bgFx"));
+    bgModeCombo_->setItemText(1, t("bgFx"));
+    bgModeCombo_->setItemText(2, t("bgCustom"));
     fxTextureCombo_->setItemText(0, t("fxPulse"));
-    fxTextureCombo_->setItemText(1, t("fxRipple"));
-    fxTextureCombo_->setItemText(2, t("fxParticles"));
+    fxTextureCombo_->setItemText(1, t("fxBreath"));
+    fxTextureCombo_->setItemText(2, t("fxHorizon"));
     perfModeCombo_->setItemText(0, t("perfAuto"));
     perfModeCombo_->setItemText(1, t("perfHigh"));
     perfModeCombo_->setItemText(2, t("perfMid"));
@@ -546,7 +550,7 @@ void ControlPanel::loadPrefsToUi() {
     dirEdit_->setText(prefs_.musicDir);
     standbyEdit_->setText(prefs_.standbyPath);
     bgVideoEdit_->setText(prefs_.bgVideoPath);
-    bgModeCombo_->setCurrentIndex(prefs_.bgMode);
+    bgModeCombo_->setCurrentIndex(bgModeCombo_->findData(prefs_.bgMode));
     fxTextureCombo_->setCurrentIndex(prefs_.fxTexture);
     perfModeCombo_->setCurrentIndex(prefs_.performanceMode);
     overlaySlider_->setValue(int(qBound(0.f, prefs_.bgOverlayDepth, 1.f) * 100.f));
@@ -572,7 +576,7 @@ void ControlPanel::loadPrefsToUi() {
 void ControlPanel::syncPrefs() {
     prefs_.musicDir = dirEdit_->text().trimmed();
     prefs_.standbyPath = standbyEdit_->text().trimmed();
-    prefs_.bgMode = bgModeCombo_->currentIndex();   // 0=default, 1=custom, 2=fx
+    prefs_.bgMode = bgModeCombo_->currentData().toInt();   // data: 0=default, 1=custom, 2=fx
     prefs_.fxTexture = fxTextureCombo_->currentIndex();
     prefs_.performanceMode = perfModeCombo_->currentIndex();
     prefs_.bgVideoPath = bgVideoEdit_->text().trimmed();

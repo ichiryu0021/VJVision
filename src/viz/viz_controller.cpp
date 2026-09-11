@@ -5,6 +5,7 @@
 #include "../audio/wasapi_capture.h"
 #include "../audio/ring_buffer.h"
 #include "../audio/spectrum.h"
+#include "../audio/beat_tracker.h"
 #include "../fp/fingerprint.h"
 #include "../fp/pipeline.h"
 #include "../fp/fp_db.h"
@@ -199,8 +200,10 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
     }
 
     SpectrumAnalyzer analyzer(fp_params::SAMPLE_RATE);
+    BeatTracker beatTracker;
     MatchEngine engine(matchParams());
     std::vector<float> bins(VIZ_SPECTRUM_BINS, 0.f);
+    std::vector<float> rawBins(VIZ_SPECTRUM_BINS, 0.f);
 
     const int windowSec = 12;
     const size_t windowSamples = (size_t)fp_params::SAMPLE_RATE * windowSec;
@@ -210,6 +213,7 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
     const auto tStart = clock::now();
     auto nextTick = clock::now();   // start immediately — don't wait 3s
     auto nextSpectrum = clock::now();
+    auto lastBeatTick = clock::now();
 
     // Track silent→audible edge so we can fire recognition immediately
     // when music comes back (don't wait for the next 2s tick slot).
@@ -280,8 +284,12 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
         // --- spectrum @ ~30 fps ---
         if (now >= nextSpectrum) {
             nextSpectrum = now + std::chrono::milliseconds(33);
+            float beatDt = std::chrono::duration<float>(now - lastBeatTick).count();
+            beatDt = std::min(0.25f, std::max(0.005f, beatDt));
+            lastBeatTick = now;
             if (cap.deviceLost()) {
                 std::fill(bins.begin(), bins.end(), 0.f);
+                beatTracker.reset();
                 sink->onSpectrum(bins.data(), VIZ_SPECTRUM_BINS, 0.f);
                 setStatus(VizStatus::Standby);
             } else {
@@ -289,12 +297,17 @@ void VizController::workerFunc(std::string dbPath, int deviceIndex) {
                 float peak = 0.f;
                 for (float s : win) { float a = s < 0.f ? -s : s; if (a > peak) peak = a; }
                 if (peak > silencePeakThreshold) {
-                    analyzer.analyze(win.data(), win.size(), bins.data());
-                    sink->onSpectrum(bins.data(), VIZ_SPECTRUM_BINS, peak);
+                    analyzer.analyze(win.data(), win.size(), bins.data(), rawBins.data());
+                    beatTracker.process(rawBins.data(), VIZ_SPECTRUM_BINS, beatDt, false);
+                    sink->onSpectrum(bins.data(), VIZ_SPECTRUM_BINS, peak,
+                                     beatTracker.beat());
                     if (engine.currentSongId() < 0) setStatus(VizStatus::Listening);
                 } else {
                     std::fill(bins.begin(), bins.end(), 0.f);
-                    sink->onSpectrum(bins.data(), VIZ_SPECTRUM_BINS, 0.f);
+                    std::fill(rawBins.begin(), rawBins.end(), 0.f);
+                    beatTracker.process(rawBins.data(), VIZ_SPECTRUM_BINS, beatDt, true);
+                    sink->onSpectrum(bins.data(), VIZ_SPECTRUM_BINS, 0.f,
+                                     beatTracker.beat());
                 }
             }
         }

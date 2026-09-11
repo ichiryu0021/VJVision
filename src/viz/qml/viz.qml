@@ -59,6 +59,7 @@ Window {
         readonly property string coverPath: root._mock ? "" : viz.coverPath
         readonly property bool tentative: root._mock ? false : viz.tentative
         readonly property real peak: root._mock ? root._mockPeak : viz.peak
+        readonly property real beat: root._mock ? 0 : viz.beat
         readonly property var bins: root._mock ? root._mockBins : viz.bins
         readonly property string standbyPath: root._mock ? "" : viz.standbyPath
         readonly property string bgVideoPath: root._mock ? "" : viz.bgVideoPath
@@ -79,24 +80,51 @@ Window {
         readonly property real logoSizePlaying: root._mock ? 0.29 : viz.logoSizePlaying
     }
 
-    // ---------- v2.0.4: Rhythm feature extractor (QML-side) ----------
-    // Derives bass/mid/treble/energy/beat/onset from mx.bins (48 Mel bands).
-    // Runs at 30fps via rhythmTimer. onset triggers fire when low-freq energy
-    // exceeds EMA baseline + k*sqrt(var) with min 120ms refractory. beat is
-    // an exp(-dt/tau) decay envelope (tau=180ms). Silence-protected.
-    QtObject {
+    // ---------- v2.0.4: Rhythm feature bridge (QML side) ----------
+    // beat comes from the C++ BeatTracker (src/audio/beat_tracker.*),
+    // an energy-only onset detector on PRE-AGC raw Mel bins: kick-focused
+    // low-band flux (30..308 Hz) weighted by broad-band coincidence, gated
+    // by a fixed 0.25 threshold plus a transient-jump path, with a 110 ms
+    // refractory. There is no BPM/tempo/phase estimation by design — every
+    // pulse is a real energy attack. Detection must NOT use these renderer bins post-AGC: the AGC
+    // fast-attack / slow-release gain ramp fakes broadband energy rises
+    // after every kick. This Item only aggregates band energies for
+    // rendering and derives the per-frame onset edge from the C++ pulse.
+    // NOTE: must use Item (not QtObject) — QtObject has no default property.
+    Item {
         id: rhythm
+        visible: false
         property real bass: 0
         property real mid: 0
         property real treble: 0
         property real energy: 0
-        property real beat: 0
+        property real beat: mx.beat
         property bool onset: false
+        property real prevBeat: 0
+        // Latched in onBeatChanged (fires the instant the C++ beat envelope
+        // crosses the edge) rather than polled in the 30fps update(): the
+        // spectrum push and fxTimer are independent asynchronous 30fps
+        // sources, so timer-side edge polling could miss the 1-2 frame
+        // >0.85 plateau, and Canvas.requestPaint runs asynchronously after
+        // the next update() had already cleared onset → kick impulse never
+        // fired. The latch is consumed by onPaint, decoupling capture from
+        // render timing.
+        property bool onsetLatched: false
 
-        // EMA state for onset detection
-        property real bassMean: 0.01
-        property real bassVar: 0.001
-        property real lastOnsetMs: 0
+        onBeatChanged: {
+            // Rising-edge via JUMP, not absolute levels: with rapid rolls
+            // (triplets ≈156 ms apart) the 280 ms envelope only decays to
+            // ~0.57 before the next reset, so a prevBeat<0.5 level test
+            // would swallow every hit after the first. A >0.15 upward jump
+            // reliably marks each C++ onset reset (beat_ is set to 1.0).
+            if (beat > 0.7 && (beat - prevBeat) > 0.15) {
+                onsetLatched = true
+                // Paint in THIS event-loop iteration — do not wait for the
+                // 33 ms fxTimer tick, which made kicks look late by 0-33 ms.
+                if (fxCanvas.visible) fxCanvas.requestPaint()
+            }
+            prevBeat = beat
+        }
 
         // Resolved performance mode (auto → heuristic, otherwise user pick)
         readonly property int resolvedPerf: {
@@ -110,63 +138,24 @@ Window {
             return 2
         }
 
-        // Tunables
-        readonly property real onsetK: 1.8       // sensitivity
-        readonly property real onsetRefractoryMs: 120
-        readonly property real beatTauMs: 180.0
-        readonly property real silenceThresh: 1e-4
-
-        property real lastTickMs: 0
-
-        Timer {
-            id: rhythmTimer
-            interval: 33   // 30fps
-            repeat: true
-            running: true
-            onTriggered: rhythm.update()
-        }
-
         function update() {
             var bins = mx.bins
             var n = bins ? bins.length : 0
-            if (n < 6) { bass = 0; mid = 0; treble = 0; energy = 0; beat = Math.max(0, beat - 0.02); onset = false; return }
+            if (n < 24) {
+                bass = 0; mid = 0; treble = 0; energy = 0
+                return
+            }
 
-            // Band aggregation (48 Mel bins: bass 0-5, mid 6-23, treble 24-47)
+            // Band aggregation (Mel bins: bass 0-5, mid 6-23, treble 24+)
             var bSum = 0, mSum = 0, tSum = 0, allSum = 0
             for (var i = 0; i < 6; ++i) { var v = bins[i]; bSum += v; allSum += v }
             for (var i2 = 6; i2 < 24 && i2 < n; ++i2) { var v2 = bins[i2]; mSum += v2; allSum += v2 }
             for (var i3 = 24; i3 < n; ++i3) { var v3 = bins[i3]; tSum += v3; allSum += v3 }
-            var bassVal = bSum / 6
-            var midVal = mSum / Math.max(1, (Math.min(24, n) - 6))
-            var trebleVal = tSum / Math.max(1, (n - 24))
-            var energyVal = allSum / n
-            bass = bassVal; mid = midVal; treble = trebleVal; energy = energyVal
-
-            var now = Date.now()
-            var dt = lastTickMs > 0 ? (now - lastTickMs) / 1000.0 : 0.033
-            lastTickMs = now
-
-            // Beat decay
-            var decay = Math.exp(-dt * 1000.0 / beatTauMs)
-            beat = beat * decay
-
-            // Onset detection (EMA mean/var on bass)
-            var alpha = 0.05
-            var delta = bassVal - bassMean
-            bassMean = bassMean + alpha * delta
-            bassVar = (1 - alpha) * (bassVar + alpha * delta * delta)
-
-            onset = false
-            if (bassVal > silenceThresh && bassVal > bassMean + onsetK * Math.sqrt(Math.max(0, bassVar))) {
-                if (now - lastOnsetMs > onsetRefractoryMs) {
-                    onset = true
-                    beat = 1.0
-                    lastOnsetMs = now
-                }
-            }
-
-            // Silence: beat fades to 0
-            if (bassVal < silenceThresh) { beat = beat * 0.9 }
+            bass = bSum / 6
+            mid = mSum / Math.max(1, (Math.min(24, n) - 6))
+            treble = tSum / Math.max(1, (n - 24))
+            energy = allSum / n
+            // Onset edge is captured in onBeatChanged → onsetLatched.
         }
     }
 
@@ -455,7 +444,8 @@ Window {
     // Order (back → front):
     //   1. Solid base color "#0a0f1a" (deep blue fallback, bottom-most)
     //   2. Ripple Canvas (semi-transparent animated color wash — OVERPAINTS bg slightly)
-    //   3. Custom background media (AnimatedImage or VideoOutput — on top of ripple IF present)
+    //   2b. FX texture Canvas (fx mode only — reactive strokes ON TOP of ripple)
+    //   3. Custom background media (AnimatedImage or VideoOutput — on top of ripple/fx IF present)
     //   4. Dark vignette (gradient overlay — always top-most background effect)
     //   5. Spectrum bars / track info / logo ... (content, not background)
 
@@ -473,6 +463,10 @@ Window {
             anchors.fill: parent
             contextType: "2d"
             renderStrategy: Canvas.Immediate
+            // Always visible: in fx (rhythm texture) mode the fxCanvas draws
+            // ON TOP of this ambient wash — the texture is strokes on a
+            // transparent canvas, and the default ripple stays as the base.
+            visible: true
             opacity: mx.bgVideoPath === "" ? 1.0 : 0.6
 
             // Persistent lerp state — survives across onPaint calls.
@@ -489,7 +483,7 @@ Window {
                 id: rippleTimer
                 interval: 33
                 repeat: true
-                running: true
+                running: ripple.visible
                 onTriggered: ripple.requestPaint()
             }
 
@@ -534,14 +528,17 @@ Window {
                     return "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," + a + ")"
                 }
 
+                // Normalized cycles-per-screen (same scheme as fx pulse):
+                // ~2 crests at any resolution. The 3 layers differ only by
+                // phase / drift speed / opacity — no dense pixel-k ripples.
+                var TAU = 2 * Math.PI
                 var waveforms = [
-                    function(x, t, l) { return Math.sin(x * 0.0025 + t * 0.21 + l * 0.7) * 0.7
-                                                 + Math.sin(x * 0.006 + t * 0.30) * 0.3 },
-                    function(x, t, l) { return Math.sin(x * 0.004 + t * 0.30 + l * 1.1) * 0.6
-                                                 + Math.sin(x * 0.009 + t * 0.42) * 0.25 },
-                    function(x, t, l) { return Math.sin(x * 0.005 + t * 0.42 + l * 1.5) * 0.5
-                                                 + Math.sin(x * 0.011 + t * 0.54) * 0.25
-                                                 + Math.sin(x * 0.002 - t * 0.15) * 0.3 }
+                    function(x, t, l) { return Math.sin((x / w) * TAU * 1.90 + t * 0.21 + l * 0.7) * 0.95
+                                                 + Math.sin((x / w) * TAU * 3.80 + t * 0.30) * 0.05 },
+                    function(x, t, l) { return Math.sin((x / w) * TAU * 1.75 + t * 0.30 + l * 1.1) * 0.95
+                                                 + Math.sin((x / w) * TAU * 3.50 + t * 0.42) * 0.05 },
+                    function(x, t, l) { return Math.sin((x / w) * TAU * 2.05 + t * 0.42 + l * 1.5) * 0.95
+                                                 + Math.sin((x / w) * TAU * 4.10 + t * 0.54) * 0.05 }
                 ]
 
                 var ampArr   = [h * 0.05, h * 0.04, h * 0.03]
@@ -554,7 +551,9 @@ Window {
                     ctx.moveTo(0, h)
                     ctx.lineTo(0, yOffArr[li])
 
-                    for (var x = 0; x <= w; x += 5) {
+                    // Fixed ~160 path points regardless of resolution.
+                    var rstep = Math.max(8, Math.floor(w / 160))
+                    for (var x = 0; x <= w; x += rstep) {
                         var y = yOffArr[li] + waveforms[li](x, t, li) * ampArr[li]
                         ctx.lineTo(x, y)
                     }
@@ -580,9 +579,10 @@ Window {
             }
         }   // ← end of ripple Canvas
 
-        // [2b] v2.0.4: FX texture Canvas — shown only when bgMode==2 (rhythm texture).
-        //     Sits at the SAME z as ripple (between base color and custom media).
-        //     3 textures: pulse / ripple / particles — selected by mx.fxTexture.
+        // [2b] v2.1.0: FX texture Canvas — shown only when bgMode==2 (rhythm
+        //     texture). Sits ABOVE the default ripple wash and BELOW custom
+        //     media / dark overlay / song content. 3 textures:
+        //     pulse / breath / horizon — selected by mx.fxTexture.
         //     Performance mode (mx.performanceMode) scales params.
         //     Hidden in bgMode 0/1 → zero CPU cost.
         Canvas {
@@ -596,27 +596,32 @@ Window {
             // --- Performance scaling (high/mid/low) ---
             readonly property int perf: rhythm.resolvedPerf   // 1/2/3
             readonly property int fpsInterval: perf === 3 ? 66 : 33   // low=15fps, else 30fps
-            readonly property int particleCap: perf === 1 ? 200 : (perf === 2 ? 100 : 0)
-            readonly property int ringCap: perf === 1 ? 12 : 6
             readonly property real ampScale: perf === 1 ? 1.0 : (perf === 2 ? 0.7 : 0.5)
-            // low mode forces pulse-only rendering (ripple/particles degrade to pulse)
+            // low mode forces pulse-only rendering (breath/horizon degrade to pulse)
             readonly property bool lowMode: perf === 3
             readonly property int effectiveTexture: lowMode ? 0 : mx.fxTexture
 
             // --- Cross-frame persistent state ---
-            // particles: [{x,y,vx,vy,life,r}]
-            property var particles: []
-            // ripple rings: [{x,y,r,vr,alpha,w}]
-            property var rings: []
-            // pulse drift phase accumulator
             property real pulseT: 0
+            property real kickV: 0   // beat impact velocity (fast glow/width punch)
+            // Travelling local bumps: each onset spawns a Gaussian hump at a
+            // random x with random width/speed; it drifts left and fades out.
+            // Replaces the old "whole wave translated up" motion which made
+            // every kick look like a copy-paste of the same shape.
+            property var pulses: []
 
+            // KEY: update rhythm BEFORE requestPaint so beat is fresh even
+            // if onPaint is slow. Previously rhythmTimer ran independently but
+            // got starved when onPaint blocked the GUI thread → beat stuck at 0.
             Timer {
                 id: fxTimer
                 interval: fxCanvas.fpsInterval
                 repeat: true
                 running: fxCanvas.visible
-                onTriggered: fxCanvas.requestPaint()
+                onTriggered: {
+                    rhythm.update()    // update beat first
+                    fxCanvas.requestPaint()
+                }
             }
 
             onPaint: {
@@ -638,161 +643,251 @@ Window {
                 var energy = rhythm.energy
                 var bass = rhythm.bass
                 var treble = rhythm.treble
-                var onsetFlag = rhythm.onset
+                // Consume the latched onset (set in rhythm.onBeatChanged,
+                // independent of this timer/paint scheduling).
+                var onsetFlag = rhythm.onsetLatched
+                rhythm.onsetLatched = false
                 var amp = ampScale
 
+                // Central impulse injection (shared by every texture):
+                // onset injects velocity, ~200 ms exponential decay.
+                if (onsetFlag) {
+                    kickV = Math.min(1.4, kickV + 1.0)
+                    // Spawn a travelling local bump (pulse texture): random
+                    // birth position / width / speed so consecutive kicks
+                    // never look like copies of the same shape.
+                    pulses.push({
+                        x: w * (0.15 + Math.random() * 0.7),
+                        w: 0.7 + Math.random() * 0.7,     // sigma multiplier
+                        vx: 0.10 + Math.random() * 0.14,  // drift as fraction of w/s
+                        life: 1.0
+                    })
+                    if (pulses.length > 12) pulses.shift()
+                }
+                kickV *= Math.exp(-0.033 / 0.20)
+
+                // Advance/decay travelling bumps (use real frame interval).
+                var fdt = fxCanvas.fpsInterval / 1000.0
+                for (var pi = pulses.length - 1; pi >= 0; --pi) {
+                    var pu = pulses[pi]
+                    pu.x -= w * pu.vx * fdt
+                    pu.life *= Math.exp(-fdt / 0.50)   // ~0.5 s visible travel
+                    if (pu.life < 0.03 || pu.x < -w * 0.2) pulses.splice(pi, 1)
+                }
+
                 // --- Texture dispatch ---
+                // 0=pulse, 1=breath, 2=horizon (low mode forces pulse)
                 var tex = effectiveTexture
                 if (tex === 1 && !lowMode) {
-                    paintRipple(ctx, w, h, t, b, bass, treble, onsetFlag, amp, [c0,c1,c2], rgba)
+                    paintBreath(ctx, w, h, t, b, energy, bass, onsetFlag, amp, [c0,c1,c2], rgba)
                 } else if (tex === 2 && !lowMode) {
-                    paintParticles(ctx, w, h, t, b, energy, bass, onsetFlag, amp, [c0,c1,c2], rgba)
+                    paintHorizon(ctx, w, h, t, b, energy, treble, onsetFlag, amp, [c0,c1,c2], rgba)
                 } else {
                     paintPulse(ctx, w, h, t, b, energy, onsetFlag, amp, [c0,c1,c2], rgba)
                 }
             }
 
-            // --- pulse: rhythm-modulated wave field (evolution of default ripple) ---
+            // --- pulse: rhythm-modulated wave field (stroke-only, no fullscreen fill) ---
+            // PERFORMANCE: uses ONLY stroke (wide lines) — no fill of large
+            // areas. Pixel ops: ~20K/layer vs 1.5M/layer with fill = 75x less.
+            // Beat modulates amplitude AND spatial frequency.
             function paintPulse(ctx, w, h, t, beat, energy, onset, amp, cols, rgba) {
-                pulseT += 0.033
-                var cx = w / 2, cy = h / 2
-                var layers = 3
+                var step = Math.max(10, Math.floor(w / 120))  // ~120 pts regardless of resolution
+
+                // Continuous amplitude: ENERGY sets the baseline (smooth,
+                // always-moving level between quiet/loud passages) while the
+                // beat envelope adds a transient punch on top. Driving amp
+                // from beat alone made the wave binary (onset=max, otherwise
+                // almost flat). 0.10 floor keeps gentle idle motion.
+                var ampVis = Math.min(1.2, 0.10 + energy * 0.55 + beat * 0.45)
+                // Very mild frequency punch only: a strong multiplier stacks
+                // extra crests on top of the harmonic + kick bumps and the
+                // screen ends up showing 3-4 peaks instead of ~2.
+                var freqMod = 1.0 + beat * 0.2
+
+                // Continuous gentle flow even between kicks (idle drift),
+                // with a small forward surge on impact.
+                pulseT += 0.033 * (0.7 + kickV * 2.0)
+
+                // Local travelling bumps from the pulses array — each is a
+                // Gaussian hump drifting left, so kicks deform the wave at
+                // DIFFERENT places instead of translating the identical
+                // shape up and down.
+                var sigma = w * 0.085
+                function perturb(x) {
+                    var dy = 0
+                    for (var k = 0; k < pulses.length; ++k) {
+                        var p = pulses[k]
+                        var u = (x - p.x) / (sigma * p.w)
+                        dy += Math.exp(-u * u) * p.life
+                    }
+                    return dy
+                }
+
+                // Spatial frequency in CYCLES PER SCREEN (x/w normalized):
+                // keeps ~2 crests at every resolution — absolute pixel k made
+                // 2 crests at 1080p but 4+ at 4K. Harmonic is very weak.
+                var TAU = 2 * Math.PI
                 var waves = [
-                    function(x, t2, l) { return Math.sin(x * 0.0025 + t2 * 0.21 + l * 0.7) * 0.7
-                                               + Math.sin(x * 0.006 + t2 * 0.30) * 0.3 },
-                    function(x, t2, l) { return Math.sin(x * 0.004 + t2 * 0.30 + l * 1.1) * 0.6
-                                               + Math.sin(x * 0.009 + t2 * 0.42) * 0.25 },
-                    function(x, t2, l) { return Math.sin(x * 0.005 + t2 * 0.42 + l * 1.5) * 0.5
-                                               + Math.sin(x * 0.011 + t2 * 0.54) * 0.25
-                                               + Math.sin(x * 0.002 - t2 * 0.15) * 0.3 }
+                    function(x, t2) { return Math.sin((x / w) * TAU * 1.85 * freqMod + t2 * 0.25) * 0.94
+                                               + Math.sin((x / w) * TAU * 3.70 * freqMod + t2 * 0.35) * 0.04 },
+                    function(x, t2) { return Math.sin((x / w) * TAU * 1.50 * freqMod + t2 * 0.40) * 0.94
+                                               + Math.sin((x / w) * TAU * 3.00 * freqMod + t2 * 0.55) * 0.04 }
                 ]
-                var beatAmp = (0.3 + beat * 0.7) * amp
-                if (onset) beatAmp *= 1.5
-                var ampArr = [h * 0.05 * beatAmp, h * 0.04 * beatAmp, h * 0.03 * beatAmp]
-                var yOffArr = [h * 0.27, h * 0.42, h * 0.58]
-                var alphaArr = [0.28, 0.22, 0.18]
+                var ampArr = [h * 0.075 * ampVis * amp, h * 0.052 * ampVis * amp]
+                var yOffArr = [h * 0.35, h * 0.55]
+                // Back layer responds less to bumps → depth/parallax.
+                var bumpGain = [h * 0.10 * amp, h * 0.065 * amp]
 
-                for (var li = 2; li >= 0; --li) {
+                for (var li = 1; li >= 0; --li) {
                     ctx.beginPath()
-                    ctx.moveTo(0, h)
-                    ctx.lineTo(0, yOffArr[li])
-                    for (var x = 0; x <= w; x += 5) {
-                        var y = yOffArr[li] + waves[li](x, pulseT, li) * ampArr[li]
-                        ctx.lineTo(x, y)
+                    for (var x = 0; x <= w; x += step) {
+                        var y = yOffArr[li]
+                              + waves[li](x, pulseT) * ampArr[li]
+                              - perturb(x) * bumpGain[li]
+                        if (x === 0) ctx.moveTo(x, y)
+                        else ctx.lineTo(x, y)
                     }
-                    ctx.lineTo(w, h)
-                    ctx.closePath()
                     var lc = cols[li]
-                    var a = alphaArr[li] * (0.5 + energy * 0.5)
-                    var crestY = yOffArr[li] - ampArr[li]
-                    var grad = ctx.createLinearGradient(0, crestY, 0, h)
-                    grad.addColorStop(0.00, rgba(lc, a))
-                    grad.addColorStop(0.15, rgba(lc, a * 0.6))
-                    grad.addColorStop(0.50, rgba(lc, a * 0.2))
-                    grad.addColorStop(1.00, rgba(lc, 0.0))
-                    ctx.fillStyle = grad
-                    ctx.fill()
-                }
-
-                // Radial push on onset
-                if (onset) {
-                    ctx.beginPath()
-                    var r = Math.max(w, h) * 0.4 * beat
-                    var grad2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-                    grad2.addColorStop(0, rgba(cols[0], 0.15))
-                    grad2.addColorStop(1, rgba(cols[0], 0))
-                    ctx.fillStyle = grad2
-                    ctx.fillRect(0, 0, w, h)
-                }
-            }
-
-            // --- ripple: concentric rings spawned on onset ---
-            function paintRipple(ctx, w, h, t, beat, bass, treble, onset, amp, cols, rgba) {
-                var cx = w / 2, cy = h / 2
-                // Spawn new ring on onset
-                if (onset) {
-                    var isBass = bass > treble
-                    var vr = isBass ? (2.0 + bass * 6.0) : (4.0 + treble * 8.0)
-                    var w2 = isBass ? 3.0 : 1.5
-                    var col = isBass ? cols[0] : cols[2]
-                    rings.push({x: cx, y: cy, r: 1, vr: vr * amp, alpha: 0.6, w: w2, c: col})
-                    // Cap rings
-                    while (rings.length > ringCap) rings.shift()
-                }
-                // Update + draw rings
-                ctx.globalCompositeOperation = "lighter"
-                for (var i = rings.length - 1; i >= 0; --i) {
-                    var ring = rings[i]
-                    ring.r += ring.vr
-                    ring.alpha *= 0.97
-                    if (ring.alpha < 0.01 || ring.r > Math.max(w, h)) {
-                        rings.splice(i, 1)
-                        continue
-                    }
-                    ctx.beginPath()
-                    ctx.arc(ring.x, ring.y, ring.r, 0, 2 * Math.PI)
-                    ctx.strokeStyle = rgba(ring.c, ring.alpha)
-                    ctx.lineWidth = ring.w
+                    var a = (0.5 + energy * 0.5) * (li === 0 ? 0.7 : 0.5)
+                    ctx.strokeStyle = rgba(lc, a)
+                    // Thin waveform: 4..9 px, follows continuous amplitude.
+                    ctx.lineWidth = (4 + ampVis * 4) * amp
+                    ctx.lineCap = "round"
+                    ctx.lineJoin = "round"
                     ctx.stroke()
                 }
-                ctx.globalCompositeOperation = "source-over"
-
-                // Faint ambient pulse even without onset (don't freeze)
-                if (rings.length === 0) {
-                    var r2 = Math.max(w, h) * 0.3 * (0.5 + beat * 0.5)
-                    var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r2)
-                    grad.addColorStop(0, rgba(cols[1], 0.08))
-                    grad.addColorStop(1, rgba(cols[1], 0))
-                    ctx.fillStyle = grad
-                    ctx.fillRect(0, 0, w, h)
-                }
             }
 
-            // --- particles: burst on onset, physics integration, trail ---
-            function paintParticles(ctx, w, h, t, beat, energy, bass, onset, amp, cols, rgba) {
+            // --- breath: central glow disc scaling with beat ---
+            // PERFORMANCE: arc fill (circular region only, not fullscreen).
+            // No fillRect(0,0,w,h). Pixel ops ~450K vs 2M = 4x less.
+            function paintBreath(ctx, w, h, t, beat, energy, bass, onset, amp, cols, rgba) {
                 var cx = w / 2, cy = h / 2
-                // Spawn on onset
-                if (onset && particleCap > 0) {
-                    var n = Math.min(particleCap - particles.length, Math.round(20 + bass * 80))
-                    for (var i = 0; i < n; ++i) {
-                        var ang = Math.random() * 2 * Math.PI
-                        var speed = (1.0 + bass * 5.0) * amp * (0.5 + Math.random())
-                        particles.push({
-                            x: cx, y: cy,
-                            vx: Math.cos(ang) * speed,
-                            vy: Math.sin(ang) * speed,
-                            life: 1.0,
-                            r: 2 + Math.random() * 3,
-                            c: cols[Math.floor(Math.random() * 3)]
-                        })
-                    }
-                    while (particles.length > particleCap) particles.shift()
-                }
+                var maxR = Math.min(w, h) * 0.35
+                var beatVis = 0.3 + beat * 0.7
+                if (onset) beatVis = Math.min(1.0, beatVis * 1.3)
+                var discR = maxR * beatVis * amp
+                var ambR = maxR * (1.0 + energy * 0.3)
 
-                // Fade canvas (trail effect) — draw semi-transparent black rect
-                ctx.globalCompositeOperation = "source-over"
-                ctx.fillStyle = "rgba(5, 6, 10, 0.12)"
-                ctx.fillRect(0, 0, w, h)
+                // Ambient glow (arc fill, NOT fillRect)
+                var grad0 = ctx.createRadialGradient(cx, cy, 0, cx, cy, ambR)
+                grad0.addColorStop(0, rgba(cols[1], 0.12 + energy * 0.1))
+                grad0.addColorStop(1, rgba(cols[1], 0))
+                ctx.fillStyle = grad0
+                ctx.beginPath()
+                ctx.arc(cx, cy, ambR, 0, 2 * Math.PI)
+                ctx.fill()
 
-                // Integrate + draw particles
-                ctx.globalCompositeOperation = "lighter"
-                for (var j = particles.length - 1; j >= 0; --j) {
-                    var p = particles[j]
-                    p.x += p.vx
-                    p.y += p.vy
-                    p.vx *= 0.98   // damping
-                    p.vy *= 0.98
-                    p.life *= 0.96
-                    if (p.life < 0.02 || p.x < -20 || p.x > w + 20 || p.y < -20 || p.y > h + 20) {
-                        particles.splice(j, 1)
-                        continue
-                    }
+                // Main disc (beat-driven)
+                var grad1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, discR)
+                grad1.addColorStop(0, rgba(cols[0], 0.6 * beatVis))
+                grad1.addColorStop(0.5, rgba(cols[0], 0.25 * beatVis))
+                grad1.addColorStop(1, rgba(cols[0], 0))
+                ctx.fillStyle = grad1
+                ctx.beginPath()
+                ctx.arc(cx, cy, discR, 0, 2 * Math.PI)
+                ctx.fill()
+
+                // Inner hot core (onset flash)
+                if (beat > 0.1) {
+                    var coreR = discR * 0.35
+                    var grad2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR)
+                    grad2.addColorStop(0, rgba(cols[2], 0.5 * beat))
+                    grad2.addColorStop(1, rgba(cols[2], 0))
+                    ctx.fillStyle = grad2
                     ctx.beginPath()
-                    ctx.arc(p.x, p.y, p.r * p.life, 0, 2 * Math.PI)
-                    ctx.fillStyle = rgba(p.c, p.life * 0.8)
+                    ctx.arc(cx, cy, coreR, 0, 2 * Math.PI)
                     ctx.fill()
                 }
-                ctx.globalCompositeOperation = "source-over"
+
+                // Rotating ring (stroke only)
+                var ringR = maxR * (0.7 + beat * 0.2)
+                var rot = t * 0.3
+                ctx.strokeStyle = rgba(cols[2], 0.2 + beat * 0.4)
+                ctx.lineWidth = (2 + beat * 3) * amp
+                ctx.beginPath()
+                for (var i = 0; i <= 48; ++i) {
+                    var ang = (i / 48) * 2 * Math.PI + rot
+                    var px = cx + Math.cos(ang) * ringR
+                    var py = cy + Math.sin(ang) * ringR
+                    if (i === 0) ctx.moveTo(px, py)
+                    else ctx.lineTo(px, py)
+                }
+                ctx.closePath()
+                ctx.stroke()
+            }
+
+            // --- horizon: glowing line swaying with beat (stroke + narrow fill) ---
+            // PERFORMANCE: stroke lines + narrow rect fills (bandH only, not
+            // fullscreen). Pixel ops ~310K vs 2M+ = 6x less.
+            function paintHorizon(ctx, w, h, t, beat, energy, treble, onset, amp, cols, rgba) {
+                var midY = h * 0.5 - kickV * h * 0.10 * amp   // kicks upward, falls back
+                // Continuous energy baseline + beat punch (same as pulse).
+                var hAmp = Math.min(1.2, 0.10 + energy * 0.55 + beat * 0.45)
+                var sway = h * 0.055 * hAmp * amp
+                var bandH = h * 0.12
+                var step = Math.max(10, Math.floor(w / 100))
+                var phase = t * 0.5 + kickV * 3.5   // surge on kick
+
+                function waveY(x, off) {
+                    // Cycles per screen (resolution-independent).
+                    var xn = x / w * 2 * Math.PI
+                    return midY + off + Math.sin(xn * 1.3 + phase) * sway * 0.5
+                                        + Math.sin(xn * 2.6 + phase * 1.3) * sway * 0.25
+                }
+
+                // Sample the main line once; fills and stroke share these exact
+                // points so the glow bands are perfectly contiguous with the line.
+                var pts = []
+                for (var xp = 0; xp <= w; xp += step) {
+                    pts.push([xp, waveY(xp, 0)])
+                }
+
+                // --- Upper glow band: inner edge = main line, extends bandH up ---
+                ctx.beginPath()
+                ctx.moveTo(pts[0][0], pts[0][1] - bandH)
+                for (var pu = 0; pu < pts.length; pu++) {
+                    ctx.lineTo(pts[pu][0], pts[pu][1] - bandH)
+                }
+                for (var pu2 = pts.length - 1; pu2 >= 0; pu2--) {
+                    ctx.lineTo(pts[pu2][0], pts[pu2][1])
+                }
+                ctx.closePath()
+                // Opaque stop extends past midY so the wavy inner edge stays bright.
+                var gradU = ctx.createLinearGradient(0, midY - bandH, 0, midY + sway)
+                gradU.addColorStop(0, rgba(cols[0], 0))
+                gradU.addColorStop(1, rgba(cols[0], 0.35 * Math.min(1, hAmp)))
+                ctx.fillStyle = gradU
+                ctx.fill()
+
+                // --- Lower glow band: inner edge = main line, extends bandH down ---
+                ctx.beginPath()
+                ctx.moveTo(pts[0][0], pts[0][1] + bandH)
+                for (var pl = 0; pl < pts.length; pl++) {
+                    ctx.lineTo(pts[pl][0], pts[pl][1] + bandH)
+                }
+                for (var pl2 = pts.length - 1; pl2 >= 0; pl2--) {
+                    ctx.lineTo(pts[pl2][0], pts[pl2][1])
+                }
+                ctx.closePath()
+                var gradL = ctx.createLinearGradient(0, midY - sway, 0, midY + bandH)
+                gradL.addColorStop(0, rgba(cols[2], 0.35 * Math.min(1, hAmp)))
+                gradL.addColorStop(1, rgba(cols[2], 0))
+                ctx.fillStyle = gradL
+                ctx.fill()
+
+                // --- Horizon line glow (stroke, brightest at beat) ---
+                ctx.beginPath()
+                for (var x3 = 0; x3 < pts.length; x3++) {
+                    if (x3 === 0) ctx.moveTo(pts[x3][0], pts[x3][1])
+                    else ctx.lineTo(pts[x3][0], pts[x3][1])
+                }
+                ctx.strokeStyle = rgba(cols[1], 0.5 + Math.min(1, hAmp) * 0.5)
+                ctx.lineWidth = (3 + Math.min(1, hAmp) * 5) * amp
+                ctx.lineCap = "round"
+                ctx.lineJoin = "round"
+                ctx.stroke()
             }
         }   // ← end of fxCanvas
 

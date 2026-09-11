@@ -33,7 +33,8 @@ SpectrumAnalyzer::SpectrumAnalyzer(int sampleRate) : sr_(sampleRate) {
 
 void SpectrumAnalyzer::reset() { gain_ = 1.f; }
 
-void SpectrumAnalyzer::analyze(const float* samples, size_t n, float* outBins) {
+void SpectrumAnalyzer::analyze(const float* samples, size_t n, float* outBins,
+                               float* rawOut) {
     if ((int)windowedBuf_.size() != FFT_SIZE) windowedBuf_.assign(FFT_SIZE, 0.0);
     else std::fill(windowedBuf_.begin(), windowedBuf_.end(), 0.0);
     size_t take = std::min(n, (size_t)FFT_SIZE);
@@ -63,6 +64,7 @@ void SpectrumAnalyzer::analyze(const float* samples, size_t n, float* outBins) {
         float v = (db + 65.f) / 55.f;      // -65 dBFS→0, -10 dBFS→1
         v = std::clamp(v, 0.f, 1.f);
         outBins[b] = v;
+        if (rawOut) rawOut[b] = v;   // pre-AGC copy for beat detection
         if (v > bandMax) bandMax = v;
     }
 

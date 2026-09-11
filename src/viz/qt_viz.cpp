@@ -134,9 +134,10 @@ QtVizSink::QtVizSink(QObject* parent) : QObject(parent) {
     }, Qt::QueuedConnection);
 
     connect(this, &QtVizSink::sigSpectrum, this,
-            [this](QVariantList bins, float peak) {
+            [this](QVariantList bins, float peak, float beat) {
         bins_ = std::move(bins);
         peak_ = peak;
+        beat_ = beat;
         emit binsChanged();
     }, Qt::QueuedConnection);
 
@@ -357,11 +358,12 @@ void QtVizSink::onTrack(const TrackEvent& t) {
         qv);
 }
 
-void QtVizSink::onSpectrum(const float* bins, int count, float peak) {
+void QtVizSink::onSpectrum(const float* bins, int count, float peak,
+                           float beat) {
     QVariantList list;
     list.reserve(count);
     for (int i = 0; i < count; ++i) list.append((double)bins[i]);
-    emit sigSpectrum(std::move(list), peak);
+    emit sigSpectrum(std::move(list), peak, beat);
 }
 
 void QtVizSink::onStatus(VizStatus status) {

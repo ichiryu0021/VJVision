@@ -40,8 +40,10 @@ class VizSink {
 public:
     virtual ~VizSink() = default;
     virtual void onTrack(const TrackEvent& track) {}
-    // bins: VIZ_SPECTRUM_BINS values 0..1; peak: overall level 0..1
-    virtual void onSpectrum(const float* bins, int count, float peak) {}
+    // bins: VIZ_SPECTRUM_BINS values 0..1; peak: overall level 0..1;
+    // beat: 0..1 decaying kick pulse envelope (energy-based, pre-AGC)
+    virtual void onSpectrum(const float* bins, int count, float peak,
+                            float beat = 0.f) {}
     virtual void onStatus(VizStatus status) {}
 };
 
@@ -52,8 +54,8 @@ public:
     void onTrack(const TrackEvent& t) override {
         for (auto& s : sinks_) s->onTrack(t);
     }
-    void onSpectrum(const float* b, int n, float p) override {
-        for (auto& s : sinks_) s->onSpectrum(b, n, p);
+    void onSpectrum(const float* b, int n, float p, float beat) override {
+        for (auto& s : sinks_) s->onSpectrum(b, n, p, beat);
     }
     void onStatus(VizStatus st) override {
         for (auto& s : sinks_) s->onStatus(st);
