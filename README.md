@@ -146,6 +146,10 @@ Qt Multimedia needs an FFmpeg backend; confirm `avcodec-61.dll`, `avformat-61.dl
 确认 GIF 自身带 alpha 通道；AnimatedImage 保留原始 alpha。用 FFmpeg 检查：`ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt -of default=noprint_wrappers=1 input.gif`，预期输出 `rgba`。
 Confirm the GIF actually has an alpha channel; AnimatedImage preserves whatever alpha is there. Check with FFmpeg: expect `rgba`.
 
+**GIF LOGO 播放一次就停？/ Animated GIF stops after one loop?**
+部分 GIF 制作工具默认只设置循环 1 次（而非无限循环）。用 FFmpeg 重新封装强制无限循环：`ffmpeg -i input.gif -loop 0 output.gif`（`-loop 0` = 无限循环）。VJVision 会尊重 GIF 自身的循环设置，不会强行覆盖。
+Some GIF authoring tools default to a single loop. Re-encode with FFmpeg to force infinite looping: `ffmpeg -i input.gif -loop 0 output.gif` (`-loop 0` = infinite). VJVision respects the GIF's own loop setting and does not override it.
+
 **VJVision 启动闪退？/ VJVision crashes on launch?**
 1. 看 exe 同级有没有 `VJVision_prefs.json`，删了让它重新生成默认值
 2. 确认 Qt 运行库完整部署（windeployqt 跑过）
