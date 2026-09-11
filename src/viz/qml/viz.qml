@@ -381,11 +381,6 @@ Window {
             renderStrategy: Canvas.Immediate
             opacity: mx.bgVideoPath === "" ? 1.0 : 0.6
 
-            // Half-resolution buffer — GPU upscales to full item size.
-            // CPU 2D rasterization cost cut ~4x (half width × half height).
-            canvasSize: Qt.size(Math.max(1, Math.floor(width/2)),
-                                Math.max(1, Math.floor(height/2)))
-
             // Persistent lerp state — survives across onPaint calls.
             // 9-element flat RGB: [r0,g0,b0, r1,g1,b1, r2,g2,b2]
             property var curRgb: [80, 80, 120, 80, 80, 120, 80, 80, 120]
@@ -406,7 +401,7 @@ Window {
 
             onPaint: {
                 var ctx = getContext("2d")
-                var w = canvasSize.width, h = canvasSize.height
+                var w = width, h = height
                 ctx.reset()
 
                 // Absolute time — keeps wave motion continuous even when
