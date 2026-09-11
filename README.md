@@ -70,6 +70,9 @@ VJVision listens to the DJ booth output, auto-recognises the playing track, and 
 | 🖥️ **多显示器支持** | 默认窗口化，拖到任意屏幕按 `F` 全屏 / Windowed by default, press `F` for fullscreen on any display |
 | 🗃️ **无 DB 也能跑** | 没有指纹库时仅渲染频谱与波形（standby-only 模式）/ Spectrum + ripple only when no fingerprint DB |
 | 🌐 **中英双语界面** | 一键切换 中文 / English / One-click Chinese / English switch |
+| 🔗 **声卡稳定锁定** | 按系统设备 ID 记忆录音设备，重启、插拔声卡、枚举顺序变化均不漂移；设备缺失自动回退默认回采 / Remembers the recording device by stable system ID across reboots and replugging; auto-falls back if missing |
+| 📊 **识别电量状态** | 控制面板实时显示当前 / 候选曲目的 0–10 确认进度与识别事件（候选、确认、混音保持）/ Live 0–10 confirmation progress and recognition events in the control panel |
+| 🛡️ **开场防误触** | 空槽第一首需跨时间复核才确认，环境噪声与巧合匹配不再误报；真歌约 2 秒确认 / The first track at an empty slot needs a cross-time re-check, suppressing false openings; real tracks confirm in ~2 s |
 | 💾 **便携部署** | exe + Qt 运行库 + 空 `data/` 文件夹拷走即用 / Portable: exe + Qt runtime + empty `data/` folder |
 
 ---
@@ -138,8 +141,8 @@ You can also **skip analysis** and enjoy spectrum + ripple visuals right away (s
 | `VJVision_prefs.json` | 全部设置：音频设备、语言、置信度阈值、LOGO、背景、遮罩 / All settings: device, language, confidence gates, logo, background, overlay |
 | `covers/` | 专辑封面缓存 / Album cover cache |
 
-> **便携迁移 / Portable migration** — 把整个 `VJVision/` 文件夹（exe + dll + qml + data/）拷到 U 盘或另一台电脑，设置和指纹库完全保留，无需重新分析。换电脑后音频设备索引可能需要重选。
-> Copy the whole `VJVision/` folder to a USB stick or another machine — settings and fingerprints carry over. Only the audio-device index may need re-picking on a different machine.
+> **便携迁移 / Portable migration** — 把整个 `VJVision/` 文件夹（exe + dll + qml + data/）拷到 U 盘或另一台电脑，设置和指纹库完全保留，无需重新分析。音频设备按系统稳定 ID 记忆：同一台电脑上即使插拔声卡或重启也无需重选；仅当目标设备不存在（换机 / 拔出 / 禁用）时才需要重选，期间自动回退默认输出回采。
+> Copy the whole `VJVision/` folder to a USB stick or another machine — settings and fingerprints carry over. The audio device is remembered by its stable system ID: no re-picking after replugging or rebooting on the same machine; you only need to re-pick when the target device is genuinely absent (different machine, unplugged, disabled), with automatic fallback to the default output loopback in the meantime.
 
 ---
 
@@ -151,7 +154,7 @@ You can also **skip analysis** and enjoy spectrum + ripple visuals right away (s
 | 数据 | 数据文件夹、音乐目录、**分析**按钮 + 进度条 + 歌曲数 / Data folder, music folder, **Analyze** button + progress + track count |
 | 识别阈值 | 三道置信度高级调节 + **恢复默认** / Three confidence gates + **Reset to defaults** |
 | 视觉效果 | 待机 LOGO（浏览 + 清除）、背景来源（默认/自定义）、底色/背景媒体、黑色遮罩深度 / Standby logo, background source, colour or media picker, black overlay depth |
-| 识别状态 | 当前歌曲、识别日志、错误信息 / Current track, recognition log, errors |
+| 识别状态 | 当前歌曲、识别日志、错误信息、**电量状态**（当前 / 候选 0–10 进度 + 识别事件）/ Current track, recognition log, errors, **charge state** (current / candidate 0–10 progress + events) |
 | 底部整条 | **启动可视化 / 停止** 大按钮 / **Start / Stop Visualizer** bar |
 
 ---
