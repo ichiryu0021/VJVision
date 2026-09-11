@@ -23,7 +23,7 @@
 如果 VJVision 帮到了你，欢迎赞赏支持，让项目持续迭代。
 <br>*If VJVision has helped you, consider sponsoring to keep it evolving.*
 
-<img src="docs/sponsor-wechat.png" alt="微信赞赏码" width="220">
+<img src="docs/sponsor-wechat.png" alt="微信赞赏码" width="320">
 <br>
 <small>微信赞赏码 / WeChat sponsor code</small>
 
