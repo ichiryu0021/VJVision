@@ -44,6 +44,35 @@ bool FpDb::open(const std::string& path) {
     exec("CREATE TABLE IF NOT EXISTS song_paths ("
          "song_id INTEGER PRIMARY KEY,"
          "file_path TEXT NOT NULL);");
+
+    // Fingerprint-parameter compatibility. Different hop/amp/fan produce
+    // incompatible hashes; a DB built with old parameters must be wiped so
+    // the library is re-indexed (otherwise lookups return garbage and the
+    // old rows bloat every query). Fresh DBs are user_version 0.
+    int storedVersion = 0;
+    sqlite3_stmt* vstmt = nullptr;
+    if (sqlite3_prepare_v2(db_, "PRAGMA user_version;", -1, &vstmt,
+                           nullptr) == SQLITE_OK) {
+        if (sqlite3_step(vstmt) == SQLITE_ROW)
+            storedVersion = sqlite3_column_int(vstmt, 0);
+        sqlite3_finalize(vstmt);
+    }
+    if (storedVersion != fp_params::FP_SCHEMA_VERSION) {
+        if (storedVersion != 0) {
+            fprintf(stderr,
+                    "[fp] fingerprint schema v%d → v%d: clearing old index, "
+                    "library must be re-analyzed.\n",
+                    storedVersion, fp_params::FP_SCHEMA_VERSION);
+        }
+        exec("DELETE FROM fingerprints;");
+        exec("DELETE FROM song_paths;");
+        exec("DELETE FROM songs;");
+        exec("DELETE FROM sqlite_sequence WHERE name='songs';");
+        char sql[64];
+        std::snprintf(sql, sizeof(sql), "PRAGMA user_version=%d;",
+                      fp_params::FP_SCHEMA_VERSION);
+        exec(sql);
+    }
     return true;
 }
 

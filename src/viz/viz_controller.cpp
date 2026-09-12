@@ -36,6 +36,15 @@ namespace {
 constexpr int kMinSliceHashes = 80;
 constexpr int kMinAlignedVotes = 10;
 
+// STFT grid phase sweep. DB fingerprints lie on each indexed file's own hop
+// grid, but the live ring window opens on an arbitrary sample; a sub-hop
+// grid shift drifts spectral peaks and breaks nearly all 80-bit hashes
+// (measured: old params 0/19 windows at unlucky phases). Query each window
+// on 4 grids offset by 1/4 hop and keep the strongest alignment — worst-case
+// distance to the true grid drops from 3/4 hop to 1/8 hop. Every phase
+// slice ends at the same "now" sample, so offset normalization is shared.
+constexpr int kQueryPhases = 4;
+
 // SQL lookup happens ONCE on the full query; hashes and hits are then
 // partitioned in memory by their query offset (frame units) and aligned over
 // several tail sub-windows, keeping the strongest. A 12 s (or 6 s) window
@@ -272,7 +281,11 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
     // blend tail instead of long after the mix has finished).
     constexpr size_t windowSamplesStable = (size_t)fp_params::SAMPLE_RATE * 12;
     constexpr size_t windowSamplesTransition = (size_t)fp_params::SAMPLE_RATE * 6;
-    std::vector<int16_t> i16(windowSamplesStable);
+    // Extra prefix room for the deepest 1/4-hop phase offset; every phase
+    // slice keeps the full window length and ends at the latest sample.
+    constexpr size_t kMaxPhaseOff =
+        (size_t)fp_params::HOP_SIZE * (kQueryPhases - 1) / kQueryPhases;
+    std::vector<int16_t> i16(windowSamplesStable + kMaxPhaseOff);
 
     using clock = std::chrono::steady_clock;
     const auto tStart = clock::now();
@@ -444,7 +457,14 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
         const size_t windowSamples = transitioning ? windowSamplesTransition
                                                    : windowSamplesStable;
         if (hasDb) {
-            auto snap = ring.readLatest(windowSamples);
+            // 4 phase grids at 0/1/2/3 quarter-hop offsets; each phase
+            // slice is windowSamples long and ends at the latest sample.
+            int phaseOff[kQueryPhases];
+            for (int p = 0; p < kQueryPhases; ++p)
+                phaseOff[p] = p * fp_params::HOP_SIZE / kQueryPhases;
+
+            const size_t readSamples = windowSamples + kMaxPhaseOff;
+            auto snap = ring.readLatest(readSamples);
             // Normalize against the capture block's LOCAL 0.5 s peak (as in
             // 2.0.x): a short window keeps quiet intros/passages loud enough
             // to produce matchable hashes — using the 12 s query window's own
@@ -453,27 +473,35 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
             // (+30 dB) cap stays, so near-silence can no longer amplify the
             // noise floor 100x-1000x into spurious spectral peaks.
             float gain = (std::min)(30.f, 0.95f / peak);
-            for (size_t i = 0; i < windowSamples; ++i) {
+            for (size_t i = 0; i < readSamples; ++i) {
                 float v = snap[i] * gain;
                 if (v > 1.f) v = 1.f;
                 if (v < -1.f) v = -1.f;
                 i16[i] = (int16_t)(v * 32767.f);
             }
-            auto fps = fingerprintSignal(i16.data(), windowSamples, fp_params::SAMPLE_RATE);
-            fpsCount = fps.size();
-            if (!fps.empty()) {
+            for (int po : phaseOff) {
+                auto fps = fingerprintSignal(i16.data() + po, windowSamples,
+                                             fp_params::SAMPLE_RATE);
+                fpsCount = (std::max)(fpsCount, fps.size());
+                if (fps.empty()) continue;
                 auto hits = db.lookupHashes(fps);
-                result = alignBestTail(fps, hits);
+                FpResult r = alignBestTail(fps, hits);
+                if (!r.matched) continue;
                 // Normalize the db/query delta into the invariant mapping
                 // between the db file clock and the live clock:
                 //   delta = (dbPos - livePos) + windowStart
                 // Subtracting windowStart (≈ nowSec - windowSec) makes the
                 // value comparable across ticks even as the window slides
-                // and across 12 s / 6 s / 3 s-AGC query buffers.
-                if (result.matched) {
-                    result.offsetSec +=
-                        (double)windowSamples / fp_params::SAMPLE_RATE - nowSec;
-                }
+                // and across 12 s / 6 s / 3 s-AGC query buffers. All phase
+                // slices end on the same sample, so the constant is shared.
+                r.offsetSec +=
+                    (double)windowSamples / fp_params::SAMPLE_RATE - nowSec;
+                const bool better =
+                    !result.matched ||
+                    r.alignedVotes > result.alignedVotes ||
+                    (r.alignedVotes == result.alignedVotes &&
+                     r.inputConfidence > result.inputConfidence);
+                if (better) result = r;
             }
 
             // --- fader-low AGC tail pass (transitions only) ---
@@ -484,11 +512,11 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
             // normalized to THAT tail's own peak (up to 50x); the absolute
             // aligned-vote gate rejects noise-amplified tails.
             if (transitioning) ++transitionTickIdx;
-            // 隔拍执行 AGC 尾通道：0.5s 节拍下每 1s 一次，CPU 增量与旧
-            // 1s 节拍持平；对齐票门限仍然拒绝噪声放大的尾段。
+            // 隔拍执行 AGC 尾通道：0.5s 节拍下每 1s 一次，控制 4 相位扫描
+            // 的 CPU 增量；对齐票门限仍然拒绝噪声放大的尾段。
             if (transitioning && (transitionTickIdx % 2 == 0)) {
                 constexpr size_t kAgcSamples = (size_t)fp_params::SAMPLE_RATE * 3;
-                auto tail = ring.readLatest(kAgcSamples);
+                auto tail = ring.readLatest(kAgcSamples + kMaxPhaseOff);
                 float tailPeak = 0.f;
                 for (float s : tail) {
                     float a = s < 0.f ? -s : s;
@@ -496,24 +524,25 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
                 }
                 if (tailPeak >= silencePeakThreshold) {
                     float tailGain = (std::min)(50.f, 0.95f / tailPeak);
-                    std::vector<int16_t> t16(kAgcSamples);
-                    for (size_t i = 0; i < kAgcSamples; ++i) {
+                    std::vector<int16_t> t16(kAgcSamples + kMaxPhaseOff);
+                    for (size_t i = 0; i < t16.size(); ++i) {
                         float v = tail[i] * tailGain;
                         if (v > 1.f) v = 1.f;
                         if (v < -1.f) v = -1.f;
                         t16[i] = (int16_t)(v * 32767.f);
                     }
-                    auto tfps = fingerprintSignal(t16.data(), kAgcSamples,
-                                                  fp_params::SAMPLE_RATE);
-                    if ((int)tfps.size() >= kMinSliceHashes) {
+                    for (int po : phaseOff) {
+                        auto tfps = fingerprintSignal(t16.data() + po,
+                                                      kAgcSamples,
+                                                      fp_params::SAMPLE_RATE);
+                        if ((int)tfps.size() < kMinSliceHashes) continue;
                         auto thits = db.lookupHashes(tfps);
                         FpResult tr = alignMatches(tfps, thits, (int)tfps.size());
                         if (tr.matched && tr.alignedVotes >= kMinAlignedVotes) {
                             tr.sliceSec = 3.0;
                             tr.localAgc = true;
                             // Same clock normalization as the main pass; this
-                            // buffer covers the last 3 s, so its start is
-                            // nowSec - 3 regardless of the main window length.
+                            // buffer covers the last 3 s for every phase.
                             tr.offsetSec += 3.0 - nowSec;
                             if (tr.inputConfidence > result.inputConfidence)
                                 result = tr;
