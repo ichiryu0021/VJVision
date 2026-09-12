@@ -1,12 +1,12 @@
 ; =============================================================================
-; VJVision 2.2.0 — Windows Installer Script (Inno Setup 6)
+; VJVision 2.2.1 — Windows Installer Script (Inno Setup 6)
 ; Build: ISCC.exe VJVision_installer.iss
 ;   (typical path: "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" or
 ;    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")
 ; =============================================================================
 
 #define MyAppName       "VJVision"
-#define MyAppVersion    "2.2.0"
+#define MyAppVersion    "2.2.1"
 #define MyAppPublisher  "Ichiryu"
 #define MyAppExeName    "VJVision.exe"
 #define MyAppSourceDir  "deploy"
@@ -26,8 +26,9 @@ AppUpdatesURL=https://github.com/ichiryu0021/VJVision/releases
 ; Program files here are read-only at runtime, so the app stores all user data
 ; (prefs, fingerprint DB, covers, standby) in the user's Documents folder:
 ;     %USERPROFILE%\Documents\VJVision_data
-; The portable ZIP instead keeps data beside the exe — the app auto-detects
-; whether its own folder is writable and picks accordingly.
+; The portable ZIP instead keeps data beside the exe — the installer writes an
+; "installed.flag" marker next to the exe (see CurStepChanged) that tells the
+; app which data-location mode to use, independent of process elevation.
 PrivilegesRequired=admin
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
@@ -73,7 +74,11 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Name: "{autostartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: startupicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+; runascurrentuser: launch the app NON-elevated as the interactive user.
+; Without it the post-install launch inherits the installer's elevated token
+; and misclassifies the read-only Program Files folder as writable, stranding
+; prefs/DB in {app}\data instead of Documents\VJVision_data.
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent runascurrentuser
 
 ; =============================================================================
 ; Uninstall — ask whether to keep user data. Installed-edition data lives in
@@ -92,6 +97,18 @@ var
 procedure InitializeWizard;
 begin
   KeepUserData := True;
+end;
+
+// Write the installed-edition marker next to the exe. The app treats the
+// presence of this file as authoritative: user data then always resolves to
+// Documents\VJVision_data regardless of the process's privilege level or a
+// custom install drive. The portable ZIP never contains this file.
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    SaveStringToFile(ExpandConstant('{app}\installed.flag'),
+      'VJVision installed edition. This marker makes the app store data in ' +
+      'Documents\VJVision_data.' + #13#10, False);
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -113,6 +130,9 @@ begin
   end
   else if CurUninstallStep = usPostUninstall then
   begin
+    // Marker is created by install code (not in the uninstall log), so it
+    // must be removed explicitly regardless of the keep-data choice.
+    DeleteFile(ExpandConstant('{app}\installed.flag'));
     if not KeepUserData then
     begin
       // Current installed-edition data folder.

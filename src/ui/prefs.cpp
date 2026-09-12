@@ -1,51 +1,132 @@
 #include "prefs.h"
 
+#include <cstdio>
+#include <functional>
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
 
 namespace vj {
 
+namespace {
+
+// True when `path` lives inside any of the per-machine Program Files roots.
+// Compared case-insensitively on clean absolute paths with a boundary check
+// so "C:\Program Files2\..." cannot pass as "C:\Program Files\...".
+bool isUnderProgramFiles(const QString& path) {
+    const QString base = QDir::cleanPath(path);
+    const char* vars[] = {"ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"};
+    for (const char* v : vars) {
+        const QString pf = QDir::cleanPath(
+            QString::fromLocal8Bit(qgetenv(v)));
+        if (pf.isEmpty() || base.size() < pf.size()) continue;
+        if (!base.startsWith(pf, Qt::CaseInsensitive)) continue;
+        if (base.size() == pf.size() ||
+            base.at(pf.size()) == QLatin1Char('/') ||
+            base.at(pf.size()) == QLatin1Char('\\'))
+            return true;
+    }
+    return false;
+}
+
+// One-shot rescue for builds stranded next to the exe by older versions:
+// an elevated first launch (e.g. Inno's post-install "launch" checkbox) used
+// to make the writability probe succeed inside Program Files, so prefs/DB
+// were written to <app>\data. Copy (never move — the source may be in a
+// read-only location) that tree into the Documents data folder once.
+void migrateStrandedExeData(const QString& exeDir, const QString& targetData) {
+    const QString targetPrefs =
+        QDir(targetData).filePath(QStringLiteral("VJVision_prefs.json"));
+    if (QFileInfo::exists(targetPrefs)) return;  // installed mode already used
+
+    const QString legacy = QDir(exeDir).filePath(QStringLiteral("data"));
+    if (!QFileInfo::exists(QDir(legacy).filePath(
+            QStringLiteral("VJVision_prefs.json"))))
+        return;  // nothing stranded
+
+    std::function<bool(const QString&, const QString&)> copyTree =
+        [&](const QString& src, const QString& dst) -> bool {
+        QDir().mkpath(dst);
+        const auto entries = QDir(src).entryInfoList(
+            QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const auto& e : entries) {
+            const QString to = QDir(dst).filePath(e.fileName());
+            if (e.isDir()) {
+                if (!copyTree(e.absoluteFilePath(), to)) return false;
+            } else if (!QFileInfo::exists(to)) {
+                if (!QFile::copy(e.absoluteFilePath(), to)) return false;
+            }
+        }
+        return true;
+    };
+
+    if (copyTree(legacy, targetData)) {
+        fprintf(stderr, "[prefs] migrated stranded data from %s to %s\n",
+                legacy.toLocal8Bit().constData(),
+                targetData.toLocal8Bit().constData());
+    }
+}
+
+}  // namespace
+
 // Single source of truth for ALL runtime data — prefs + DB + covers.
 //
-// Location is picked at runtime by probing whether the exe folder is writable:
-//   • Portable (ZIP on a normal folder / USB stick) → <exe_dir>/data/
-//     so the whole app + data travel together.
-//   • Installed under a read-only location (C:\Program Files) →
-//     ~/Documents/VJVision_data/, where every user can find it easily.
+// Mode detection MUST be independent of the privilege level of the current
+// process (an elevated writability probe inside Program Files used to flip
+// the mode and strand settings in <app>\data):
+//   • Installed edition → ~/Documents/VJVision_data/. Detected by an
+//     "installed.flag" marker the installer writes next to the exe, with a
+//     Program Files path check as a defensive fallback.
+//   • Portable (ZIP / USB / normal folder) → <exe_dir>/data/, so the app
+//     and data travel together. A read-only portable medium (probe fails)
+//     still falls back to Documents.
 QString Prefs::defaultDataDir() {
     const QString exeDir = QCoreApplication::applicationDirPath();
 
-    // Write probe next to the exe. Program Files is read-only for a
-    // non-elevated process, so this fails for the installed edition and
-    // succeeds for a portable copy.
-    bool exeWritable = false;
-    {
-        const QString probe = QDir(exeDir).filePath(QStringLiteral(".vj_write_probe.tmp"));
-        QFile f(probe);
-        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            f.close();
-            f.remove();
-            exeWritable = true;
-        }
-    }
+    const bool markerInstalled = QFileInfo::exists(
+        QDir(exeDir).filePath(QStringLiteral("installed.flag")));
+    const bool installedMode =
+        markerInstalled || isUnderProgramFiles(exeDir);
 
     QString data;
-    if (exeWritable) {
-        // Portable mode: keep data beside the exe.
-        data = QDir(exeDir).filePath(QStringLiteral("data"));
-    } else {
-        // Installed mode: user data goes under Documents (easy to find).
+    if (installedMode) {
         const QString docs =
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
         data = QDir(docs).filePath(QStringLiteral("VJVision_data"));
+    } else {
+        // Write probe next to the exe — only meaningful for portable copies
+        // (marker / Program Files already classified above).
+        bool exeWritable = false;
+        {
+            const QString probe =
+                QDir(exeDir).filePath(QStringLiteral(".vj_write_probe.tmp"));
+            QFile f(probe);
+            if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                f.close();
+                f.remove();
+                exeWritable = true;
+            }
+        }
+        if (exeWritable) {
+            data = QDir(exeDir).filePath(QStringLiteral("data"));
+        } else {
+            const QString docs =
+                QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+            data = QDir(docs).filePath(QStringLiteral("VJVision_data"));
+        }
     }
 
     if (!QDir(data).exists())
         QDir().mkpath(data);
+
+    if (installedMode)
+        migrateStrandedExeData(exeDir, data);
+
     return data;
 }
 

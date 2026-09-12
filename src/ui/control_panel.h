@@ -64,6 +64,12 @@ private:
     std::unique_ptr<VizController> controller_;
     Prefs prefs_;
 
+    // True while buildUi/loadPrefsToUi/refreshDevices populate widgets.
+    // Signal-driven syncPrefs() calls during this phase must be ignored:
+    // the device combo in particular is populated last, so other combos'
+    // setup signals would otherwise wipe the just-loaded deviceId.
+    bool populating_ = false;
+
     // Audio hardware
     QComboBox* deviceCombo_ = nullptr;
     QPushButton* refreshDevBtn_ = nullptr;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(VJVision VERSION 2.2.0 LANGUAGES C CXX)
+project(VJVision VERSION 2.2.1 LANGUAGES C CXX)
 
 # VJVision 2.0 — C++ rewrite (v1 was Python/dejavu).
 # Version single source of truth: project(VERSION ...) on line 2.

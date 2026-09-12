@@ -112,11 +112,13 @@ ControlPanel::ControlPanel(QWidget* parent) : QWidget(parent) {
     if (prefs_.dataDir.isEmpty())
         prefs_.dataDir = Prefs::defaultDataDir();
 
+    populating_ = true;
     buildUi();
     loadPrefsToUi();
     retranslate();
     refreshDevices();
     refreshSongCount();
+    populating_ = false;
 
     controller_ = std::make_unique<VizController>();
     connect(controller_.get(), &VizController::logMessage,
@@ -583,6 +585,7 @@ void ControlPanel::loadPrefsToUi() {
 }
 
 void ControlPanel::syncPrefs() {
+    if (populating_) return;   // ignore setup-time signal cascades
     prefs_.musicDir = dirEdit_->text().trimmed();
     prefs_.standbyPath = standbyEdit_->text().trimmed();
     prefs_.bgMode = bgModeCombo_->currentData().toInt();   // data: 0=default, 1=custom
@@ -591,9 +594,13 @@ void ControlPanel::syncPrefs() {
     prefs_.bgVideoPath = bgVideoEdit_->text().trimmed();
     {
         const int ci = deviceCombo_->currentIndex();
-        prefs_.deviceIdx = ci > 0 ? deviceCombo_->currentData().toInt() : -1;
-        prefs_.deviceId = ci > 0
-            ? deviceCombo_->currentData(Qt::UserRole + 1).toString() : QString();
+        // Defensive: the device combo is populated in refreshDevices(). Never
+        // persist from an unpopulated combo — that wiped deviceId on startup.
+        if (deviceCombo_->count() > 0) {
+            prefs_.deviceIdx = ci > 0 ? deviceCombo_->currentData().toInt() : -1;
+            prefs_.deviceId = ci > 0
+                ? deviceCombo_->currentData(Qt::UserRole + 1).toString() : QString();
+        }
     }
     prefs_.bgColor = bgColorBtn_->property("color").toString();
     prefs_.vizMode = vizModeCombo_->currentIndex();

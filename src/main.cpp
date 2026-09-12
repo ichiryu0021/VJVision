@@ -27,8 +27,10 @@
 #ifdef VJVC_WITH_QT
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDir>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QMetaObject>
 #include <QObject>
 #include <QScreen>
 #include "viz/qt_viz.h"
@@ -304,11 +306,91 @@ static int vizCmd(int argc, char** argv, const std::string& dbPath,
 }
 
 // M4: main control panel. No command-line argument launches this.
+//
+// Per-directory single instance: a second double-click on an exe in the SAME
+// folder does not open a second window — it signals the running instance to
+// come to the foreground and exits. Copies in DIFFERENT folders (e.g. the
+// installed edition plus a USB portable copy) run independently. Scope is
+// the GUI panel only; CLI commands (index/listen/viz) are never blocked.
+namespace {
+
+// "Local\" = per logon session (no cross-session/elevation conflicts, no
+// special rights needed). Identity is a hash of the canonical exe folder.
+constexpr wchar_t kInstMutexPrefix[] = L"Local\\VJVision_Inst_Mutex_";
+constexpr wchar_t kInstEventPrefix[] = L"Local\\VJVision_Inst_Raise_";
+
+QString perDirKernelName(const wchar_t* prefix) {
+    std::wstring raw =
+        QDir::toNativeSeparators(QCoreApplication::applicationDirPath())
+            .toStdWString();
+    wchar_t full[MAX_PATH] = {};
+    if (GetFullPathNameW(raw.c_str(), MAX_PATH, full, nullptr))
+        raw = full;                       // collapse ./.. etc.
+    CharLowerW(raw.data());               // Windows paths are case-insensitive
+    // FNV-1a 64-bit over UTF-16 code units.
+    quint64 h = 1469598103934665603ULL;
+    for (wchar_t c : raw) {
+        h ^= static_cast<quint64>(c);
+        h *= 1099511628211ULL;
+    }
+    return QString::fromWCharArray(prefix) + QString::number(h, 16);
+}
+
+void raiseWidgetToFront(QWidget* w) {
+    HWND hwnd = reinterpret_cast<HWND>(w->winId());
+    if (IsIconic(hwnd))
+        ShowWindow(hwnd, SW_RESTORE);     // un-minimize first
+    SetForegroundWindow(hwnd);
+    BringWindowToTop(hwnd);
+}
+
+}  // namespace
+
 static int panelCmd(int argc, char** argv) {
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/viz/VJVision_icon.png"));
+
+    // First check happens right after QApplication (applicationDirPath needs
+    // it) and BEFORE constructing any panel/device resources.
+    const std::wstring mutexName =
+        perDirKernelName(kInstMutexPrefix).toStdWString();
+    HANDLE hMutex = CreateMutexW(nullptr, FALSE, mutexName.c_str());
+    if (!hMutex)
+        hMutex = CreateMutexW(nullptr, FALSE, nullptr);  // never block launch
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        // Same-folder second launch: the freshly started process received
+        // the foreground privilege from the user's double-click; hand that
+        // right to the already running instance, signal it, quit silently.
+        AllowSetForegroundWindow(ASFW_ANY);
+        const std::wstring eventName =
+            perDirKernelName(kInstEventPrefix).toStdWString();
+        if (HANDLE hEv = OpenEventW(EVENT_MODIFY_STATE, FALSE,
+                                    eventName.c_str())) {
+            SetEvent(hEv);
+            CloseHandle(hEv);
+        }
+        if (hMutex) CloseHandle(hMutex);
+        return 0;
+    }
+
+    // Auto-reset, initially non-signaled: one double-click = one raise.
+    const std::wstring eventName =
+        perDirKernelName(kInstEventPrefix).toStdWString();
+    HANDLE hRaise = CreateEventW(nullptr, FALSE, FALSE, eventName.c_str());
+
     ControlPanel panel;
     panel.show();
+
+    // Background waiter (detached; dies with the process — the OS closes both
+    // kernel handles and terminates the thread at exit).
+    std::thread([hRaise, &panel] {
+        while (hRaise && WaitForSingleObject(hRaise, INFINITE) == WAIT_OBJECT_0) {
+            QMetaObject::invokeMethod(&panel,
+                [&panel] { raiseWidgetToFront(&panel); },
+                Qt::QueuedConnection);
+        }
+    }).detach();
+
     return app.exec();
 }
 #endif
