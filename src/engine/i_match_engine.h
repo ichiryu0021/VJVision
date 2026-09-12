@@ -4,16 +4,13 @@
 // when to lock the first track, when to switch during a DJ blend, and when
 // to hold the on-screen track through FX/scratch passages.
 //
-// Two interchangeable implementations are supported:
-//   * ConfidenceEngine (open source, src/engine/confidence_engine.cpp) —
-//     the classic two-tier confidence gate with cumulative-vote fallback.
-//   * An optional out-of-tree engine may be supplied by a local,
-//     non-published source tree. CMake links it automatically when present;
-//     without it the project builds fully from the open sources.
+// VJVision ships one implementation: the "Music Battery" ChargeBarEngine
+// (src/engine/charge_engine.cpp), MIT licensed with required source
+// attribution — see the copyright header in that file.
 //
-// MatchParams is a superset: the open engine uses the threshold fields,
-// while alternative engines may ignore them. Keep new fallback parameters in
-// this struct so future engines do not need new plumbing.
+// MatchParams is the parameter struct: the ChargeBar engine currently
+// ignores its threshold fields; keep new fallback parameters in this struct
+// so future engines do not need new plumbing.
 #pragma once
 #include "../fp/fingerprint.h"
 #include <memory>
@@ -35,7 +32,7 @@ struct MatchTick {
     double confidence = 0.0;
     double offsetSec = 0.0;
 
-    // Open confidence-engine evidence markers.
+    // Evidence markers (used to tag the confirmation in log lines).
     bool evidenceConfirmed = false; // locked via cross-tick offset cluster
     bool forceConfirmed = false;    // single decisive high-conf switch
     int evidenceVotes = 0;          // votes in the cluster behind it
@@ -48,7 +45,8 @@ struct MatchTick {
 };
 
 struct MatchParams {
-    // Open confidence-engine thresholds (unused by alternative engines).
+    // Threshold fields kept for interface stability (unused by the
+    // ChargeBar engine; may drive alternative engines in the future).
     float noiseFloor = 0.10f;
     float firstTrackAccept = 0.25f;
     float switchAccept = 0.30f;

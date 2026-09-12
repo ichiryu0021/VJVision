@@ -70,10 +70,8 @@ installer_output/
 # --- Trae IDE workspace (local) ---
 .trae/
 
-# --- Proprietary / closed-source material (never publish) ---
-# Local-only source trees and internal design documents live below this path.
-# It is auto-linked by CMake when present; public clones build the open engine.
-/proprietary/
-
 # --- Local rollback backups (not part of the project) ---
 /backup/
+
+# --- Genre model files (18MB, downloaded locally; shipped via installer) ---
+/models/

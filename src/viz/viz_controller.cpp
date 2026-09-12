@@ -423,10 +423,8 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
         if (peak < silencePeakThreshold) {
             FpResult empty;
             MatchTick mtSilent = engine->tick(empty, nowSec);
-#ifdef VJVISION_CHARGE_ENGINE
             emit chargeUpdate(mtSilent.curSongId, mtSilent.curVotes, -1, 0,
                               static_cast<int>(mtSilent.event), 0.0);
-#endif
             // Silence auto-timeout
             if (lastAudioTime + silenceTimeout <= now) {
                 lastAudioTime = now;   // reset so we only fire once per timeout window
@@ -562,7 +560,6 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
         }
         MatchTick mt = engine->tick(result, nowSec);
 
-#ifdef VJVISION_CHARGE_ENGINE
         // 控制面板常驻电量窗
         {
             const bool hasCand = (mt.event == MatchEvent::Tentative ||
@@ -572,7 +569,6 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
                               hasCand ? mt.streakVotes : 0,
                               static_cast<int>(mt.event), mt.confidence);
         }
-#endif
 
         // Debug: log every tick's confidence + event
         const char* evName = "None";
@@ -584,7 +580,6 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
             case MatchEvent::MixHold:     evName = "MixHold"; break;
             case MatchEvent::Confirmed:   evName = "CONFIRMED"; break;
         }
-#ifdef VJVISION_CHARGE_ENGINE
         fprintf(stderr,
                 "[viz] tick event=%-10s conf=%.4f songId=%d fps=%zu win=%zus%s"
                 " votes=%d slice=%.1fs off=%.2f%s"
@@ -595,18 +590,6 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
                 result.alignedVotes, result.sliceSec, result.offsetSec,
                 result.localAgc ? " [agc]" : "",
                 mt.curVotes, mt.streakVotes);
-#else
-        fprintf(stderr,
-                "[viz] tick event=%-10s conf=%.4f songId=%d fps=%zu win=%zus%s"
-                " votes=%d slice=%.1fs off=%.2f%s"
-                " cluster=%dt/%dv\n",
-                evName, mt.confidence, mt.songId, fpsCount,
-                windowSamples / (size_t)fp_params::SAMPLE_RATE,
-                transitioning ? " [transition]" : "",
-                result.alignedVotes, result.sliceSec, result.offsetSec,
-                result.localAgc ? " [agc]" : "",
-                mt.streakTicks, mt.streakVotes);
-#endif
 
         if (mt.event == MatchEvent::Confirmed) {
             // Only a CONFIRMED switch updates the display; QML cross-fades
@@ -615,18 +598,8 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
             sink->onTrack(t);
             setStatus(VizStatus::Matching);
             char evTag[96];
-#ifdef VJVISION_CHARGE_ENGINE
             std::snprintf(evTag, sizeof(evTag), " [bar %dv]",
                           mt.evidenceVotes);
-#else
-            if (mt.forceConfirmed)
-                std::snprintf(evTag, sizeof(evTag), " [force]");
-            else if (mt.evidenceConfirmed)
-                std::snprintf(evTag, sizeof(evTag), " [evidence %dv]",
-                              mt.evidenceVotes);
-            else
-                evTag[0] = '\0';
-#endif
             char buf[640];
             std::snprintf(buf, sizeof(buf),
                           "CONFIRMED: '%s' conf=%.3f votes=%d slice=%.1fs%s%s",
@@ -658,19 +631,11 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
                         result.alignedVotes, result.sliceSec,
                         result.localAgc ? " [agc]" : "");
                 char barTail[192];
-#ifdef VJVISION_CHARGE_ENGINE
                 std::snprintf(barTail, sizeof(barTail),
                               " bar cand=%d/10 (%dt) cur=%d/10 (%s)",
                               mt.streakVotes, mt.streakTicks, mt.curVotes,
                               firstTrack ? "standby, no display change"
                                          : "holding previous song");
-#else
-                std::snprintf(barTail, sizeof(barTail),
-                              " cluster=%dv/%dt (%s)",
-                              mt.streakVotes, mt.streakTicks,
-                              firstTrack ? "standby, no display change"
-                                         : "holding previous song");
-#endif
                 char buf[640];
                 std::snprintf(buf, sizeof(buf),
                               "%s%s: '%s' conf=%.3f votes=%d slice=%.1fs%s%s",

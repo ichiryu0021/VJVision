@@ -452,8 +452,7 @@ void ControlPanel::buildUi() {
     updateBgRowForMode(bgModeCombo->currentData().toInt());
     root->addWidget(grpVisual_);
 
-#ifdef VJVISION_CHARGE_ENGINE
-    // --- 电量状态（常驻，专有电量引擎；开源置信构建无此组） ---
+    // --- 电量状态（常驻，音乐电池引擎 ChargeBarEngine） ---
     grpCharge_ = new QGroupBox;
     auto* chargeForm = new QFormLayout(grpCharge_);
     slotBar_ = new QProgressBar;
@@ -479,7 +478,6 @@ void ControlPanel::buildUi() {
     chargeEvLbl_ = new QLabel(QStringLiteral("-"));
     chargeForm->addRow(lbl("chgEvent"), chargeEvLbl_);
     root->addWidget(grpCharge_);
-#endif
 
     // --- Run -------------------------------------------------------------
     grpRun_ = new QGroupBox;
@@ -519,9 +517,7 @@ void ControlPanel::retranslate() {
     grpAudio_->setTitle(t("grpAudio"));
     grpLib_->setTitle(t("grpLib"));
     grpVisual_->setTitle(t("grpVisual"));
-#ifdef VJVISION_CHARGE_ENGINE
     grpCharge_->setTitle(t("grpCharge"));
-#endif
     grpRun_->setTitle(t("grpRun"));
     refreshDevBtn_->setText(t("refresh"));
     browseDirBtn_->setText(t("browse"));
@@ -906,7 +902,6 @@ void ControlPanel::onSessionStopped() {
     retranslate();   // picks correct startViz text
     deviceCombo_->setEnabled(true);
     levelBar_->setValue(0);
-#ifdef VJVISION_CHARGE_ENGINE
     if (slotBar_) {
         slotBar_->setValue(0);
         candBar_->setValue(0);
@@ -914,17 +909,15 @@ void ControlPanel::onSessionStopped() {
         candIdLbl_->setText(QStringLiteral("-"));
         chargeEvLbl_->setText(QStringLiteral("-"));
     }
-#endif
 }
 
 void ControlPanel::appendLog(const QString& line) {
     logView_->appendPlainText(line);
 }
 
-// 常驻引擎状态：进度范围由专有构建中的引擎常量定义。
+// 常驻引擎状态：进度范围由音乐电池引擎的满格票数常量定义（0~10）。
 void ControlPanel::onChargeUpdate(int curId, int curBar, int candId,
                                   int candBar, int ev, double conf) {
-#ifdef VJVISION_CHARGE_ENGINE
     if (!slotBar_) return;
     slotBar_->setValue(qBound(0, curBar, 10));
     candBar_->setValue(qBound(0, candBar, 10));
@@ -940,10 +933,6 @@ void ControlPanel::onChargeUpdate(int curId, int curBar, int candId,
     chargeEvLbl_->setText(QStringLiteral("%1  conf=%2")
                               .arg(QString::fromUtf8(evName))
                               .arg(conf, 0, 'f', 3));
-#else
-    (void)curId; (void)curBar; (void)candId; (void)candBar;
-    (void)ev; (void)conf;
-#endif
 }
 
 void ControlPanel::closeEvent(QCloseEvent* e) {

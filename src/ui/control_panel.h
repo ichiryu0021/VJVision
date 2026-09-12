@@ -110,15 +110,13 @@ private:
     QPlainTextEdit* logView_ = nullptr;
     QTimer* levelTimer_ = nullptr;
 
-#ifdef VJVISION_CHARGE_ENGINE
-    // 常驻电量状态（专有电量引擎构建）
+    // 常驻电量状态窗（音乐电池引擎 / ChargeBarEngine）
     QGroupBox*   grpCharge_ = nullptr;
     QProgressBar* slotBar_ = nullptr;
     QProgressBar* candBar_ = nullptr;
     QLabel*      slotIdLbl_ = nullptr;
     QLabel*      candIdLbl_ = nullptr;
     QLabel*      chargeEvLbl_ = nullptr;
-#endif
 
     std::thread indexThread_;
     std::atomic<bool> indexing_{false};

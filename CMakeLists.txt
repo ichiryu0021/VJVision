@@ -29,22 +29,9 @@ endif()
 
 option(VJVC_WITH_QT "Build the Qt Quick visualizer (M3+)" ON)
 
-# Match engine selection: an optional engine can be supplied by a local,
-# non-published source tree. When its sources are present it is built as a
-# static library and linked in automatically; a clean public clone has no
-# proprietary/ directory and builds the open-source confidence engine.
-# Pass -DVJVISION_PROPRIETARY=OFF to force the open engine even when a
-# local optional engine exists.
-set(VJVISION_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src")
-if(NOT DEFINED VJVISION_PROPRIETARY)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/proprietary/chargebar/charge_engine.cpp")
-        set(VJVISION_PROPRIETARY ON)
-    else()
-        set(VJVISION_PROPRIETARY OFF)
-    endif()
-endif()
-message(STATUS "VJVision match engine: "
-    "${VJVISION_PROPRIETARY} (ON=local optional engine, OFF=open confidence)")
+# Match engine: the "Music Battery" ChargeBarEngine
+# (src/engine/charge_engine.cpp) is the one and only decision engine and is
+# open source under MIT with required source attribution (see file header).
 
 add_executable(VJVision WIN32
     src/main.cpp
@@ -57,17 +44,13 @@ add_executable(VJVision WIN32
     src/audio/spectrum.cpp
     src/audio/beat_tracker.cpp
     src/engine/indexer.cpp
+    src/engine/charge_engine.cpp
     src/util/tags.cpp
     src/util/audio_file.cpp
     src/viz/ipc_pipe.cpp
     src/viz/viz.qrc
     src/VJVision.rc
 )
-if(VJVISION_PROPRIETARY)
-    add_subdirectory(proprietary/chargebar)
-else()
-    target_sources(VJVision PRIVATE src/engine/confidence_engine.cpp)
-endif()
 if(VJVC_WITH_QT)
     target_sources(VJVision PRIVATE
         src/viz/qt_viz.cpp
@@ -87,11 +70,6 @@ target_compile_definitions(VJVision PRIVATE VJVISION_VERSION_STR="${VJVISION_VER
 # shell32: CommandLineToArgvW (wide argv → UTF-8)
 target_link_libraries(VJVision PRIVATE pffft sqlite3 ole32 shell32)
 
-if(VJVISION_PROPRIETARY)
-    target_link_libraries(VJVision PRIVATE vjcharge)
-    target_compile_definitions(VJVision PRIVATE VJVISION_CHARGE_ENGINE=1)
-endif()
-
 if(VJVC_WITH_QT)
     find_package(Qt6 REQUIRED COMPONENTS Gui Quick Widgets Multimedia)
     target_link_libraries(VJVision PRIVATE Qt6::Gui Qt6::Quick Qt6::Widgets Qt6::Multimedia)
@@ -103,16 +81,4 @@ if(MSVC)
     target_compile_definitions(VJVision PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
     target_compile_options(pffft PRIVATE /W0)
     target_compile_options(sqlite3 PRIVATE /W0)
-    if(VJVISION_PROPRIETARY)
-        # Keep the closed-source objects optimized together, fold identical
-        # COMDTs, and ship a deterministic Release image without debug/PDB
-        # linkage. PDB/source/static libraries are never deployment artifacts.
-        target_link_options(VJVision PRIVATE
-            $<$<CONFIG:Release>:/LTCG>
-            $<$<CONFIG:Release>:/OPT:REF>
-            $<$<CONFIG:Release>:/OPT:ICF>
-            $<$<CONFIG:Release>:/DEBUG:NONE>
-            $<$<CONFIG:Release>:/Brepro>
-        )
-    endif()
 endif()
