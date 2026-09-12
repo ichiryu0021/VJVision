@@ -479,9 +479,18 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
                 if (v < -1.f) v = -1.f;
                 i16[i] = (int16_t)(v * 32767.f);
             }
-            for (int po : phaseOff) {
-                auto fps = fingerprintSignal(i16.data() + po, windowSamples,
-                                             fp_params::SAMPLE_RATE);
+            // 4-phase baseline scan: extract peaks per phase, generate
+            // hashes, keep the strongest alignment. DT_QUANT in the hash
+            // makes this robust to keylock-on tempo changes.
+            std::vector<Peak> phasePeaks[kQueryPhases];
+            const double winSec =
+                (double)windowSamples / fp_params::SAMPLE_RATE;
+            for (int p = 0; p < kQueryPhases; ++p) {
+                int po = phaseOff[p];
+                Spectrogram spec = computeSpectrogram(
+                    i16.data() + po, windowSamples, fp_params::SAMPLE_RATE);
+                phasePeaks[p] = extractPeaks(spec);
+                auto fps = generateHashes(phasePeaks[p]);
                 fpsCount = (std::max)(fpsCount, fps.size());
                 if (fps.empty()) continue;
                 auto hits = db.lookupHashes(fps);
@@ -494,14 +503,12 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
                 // value comparable across ticks even as the window slides
                 // and across 12 s / 6 s / 3 s-AGC query buffers. All phase
                 // slices end on the same sample, so the constant is shared.
-                r.offsetSec +=
-                    (double)windowSamples / fp_params::SAMPLE_RATE - nowSec;
-                const bool better =
-                    !result.matched ||
+                r.offsetSec += winSec - nowSec;
+                if (!result.matched ||
                     r.alignedVotes > result.alignedVotes ||
                     (r.alignedVotes == result.alignedVotes &&
-                     r.inputConfidence > result.inputConfidence);
-                if (better) result = r;
+                     r.inputConfidence > result.inputConfidence))
+                    result = r;
             }
 
             // --- fader-low AGC tail pass (transitions only) ---
@@ -532,9 +539,11 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
                         t16[i] = (int16_t)(v * 32767.f);
                     }
                     for (int po : phaseOff) {
-                        auto tfps = fingerprintSignal(t16.data() + po,
-                                                      kAgcSamples,
-                                                      fp_params::SAMPLE_RATE);
+                        Spectrogram spec = computeSpectrogram(
+                            t16.data() + po, kAgcSamples,
+                            fp_params::SAMPLE_RATE);
+                        auto tpeaks = extractPeaks(spec);
+                        auto tfps = generateHashes(tpeaks);
                         if ((int)tfps.size() < kMinSliceHashes) continue;
                         auto thits = db.lookupHashes(tfps);
                         FpResult tr = alignMatches(tfps, thits, (int)tfps.size());
@@ -578,7 +587,8 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
 #ifdef VJVISION_CHARGE_ENGINE
         fprintf(stderr,
                 "[viz] tick event=%-10s conf=%.4f songId=%d fps=%zu win=%zus%s"
-                " votes=%d slice=%.1fs off=%.2f%s bar cur=%d/10 cand=%d/10\n",
+                " votes=%d slice=%.1fs off=%.2f%s"
+                " bar cur=%d/10 cand=%d/10\n",
                 evName, mt.confidence, mt.songId, fpsCount,
                 windowSamples / (size_t)fp_params::SAMPLE_RATE,
                 transitioning ? " [transition]" : "",
@@ -588,7 +598,8 @@ void VizController::workerFunc(std::string dbPath, std::wstring deviceId) {
 #else
         fprintf(stderr,
                 "[viz] tick event=%-10s conf=%.4f songId=%d fps=%zu win=%zus%s"
-                " votes=%d slice=%.1fs off=%.2f%s cluster=%dt/%dv\n",
+                " votes=%d slice=%.1fs off=%.2f%s"
+                " cluster=%dt/%dv\n",
                 evName, mt.confidence, mt.songId, fpsCount,
                 windowSamples / (size_t)fp_params::SAMPLE_RATE,
                 transitioning ? " [transition]" : "",

@@ -8,4 +8,10 @@ namespace vj {
 
 std::vector<Fingerprint> generateHashes(const std::vector<Peak>& peaks);
 
+// TEMP STUB (tempo-scaling in progress): hash peaks as if played back at
+// `tempoRatio` speed. Currently delegates to generateHashes (ratio ignored).
+// Replace with real time-delta scaling once the hashing rewrite lands.
+std::vector<Fingerprint> generateHashesScaled(const std::vector<Peak>& peaks,
+                                               double tempoRatio);
+
 } // namespace vj
