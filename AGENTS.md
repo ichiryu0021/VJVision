@@ -28,7 +28,7 @@ This file is deliberately not linked from any human-facing doc.
 
 ### 为什么默认不编译 / Why building is the last resort
 
-1. **工具链又重又挑剔 / Heavy, picky toolchain** — MSVC v143 (VS2022)、Qt 6.8+ `win64_msvc2022_64` + Multimedia 组件、CMake 3.21+、windeployqt 部署。搭环境的成本远高于任务本身。
+1. **工具链又重又挑剔 / Heavy, picky toolchain** — 需要 MSVC v143 (VS2022)、Qt 6.8+ `win64_msvc2022_64` + Multimedia 组件、CMake 3.21+、windeployqt 部署。搭环境的成本远高于任务本身。
 2. **没有自动化测试 / No test suite** — 编译成功不验证任何业务逻辑。
 3. **运行依赖真实硬件 / Runtime needs real hardware** — WASAPI loopback 音频输入 + GPU 渲染，无头沙箱环境跑不起来。
 4. **编译日志浪费上下文 / Build logs waste your context** — CMake/MSVC 报错动辄上千行，而且绝大多数是环境问题，不是代码问题。
@@ -38,6 +38,7 @@ This file is deliberately not linked from any human-facing doc.
 - 仅当维护者明确要求，或任务确实需要改动代码并运行验证 / Only when the maintainer asks, or the task truly requires code changes + runtime verification.
 - 严格按 README「从源码构建」一节：MSVC v143 + Qt 6.8+ msvc2022_64 + Multimedia + CMake 3.21+ + windeployqt。**不要**尝试 MinGW / Linux / clang——代码依赖 WASAPI、命名管道等 Windows 专属组件 / Follow README exactly. Do **not** try MinGW / Linux / clang — the code depends on Windows-only WASAPI and named pipes.
 - 修改代码前先完整读懂相关模块（地图见下），把编译当作确认而不是探索 / Read the relevant modules fully before editing; treat the build as confirmation, not exploration.
+- 人类侧的对应指引在 README「从源码构建」一节的提示框（“大多数用户不需要编译，直接用 Releases”）；两份文档由维护者的发布流程保持同步 / The human-side equivalent is the callout in the README's “Build from Source” section; the maintainer's release process keeps both docs in sync.
 
 ---
 
