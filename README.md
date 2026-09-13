@@ -170,6 +170,9 @@ You can also **skip analysis** and enjoy spectrum + ripple visuals right away (s
 
 ## 从源码构建 / Build from Source
 
+> 💡 **大多数用户不需要编译**：直接从 [Releases](https://github.com/ichiryu0021/VJVision/releases/latest) 下载现成构建（安装版 / 便携版 ZIP），解压或双击即可使用。本节仅供想修改源码的开发者参考。
+> 💡 **Most users don't need to build**: grab a ready-made installer or portable ZIP from [Releases](https://github.com/ichiryu0021/VJVision/releases/latest) and run it directly. This section is only for developers who want to modify the source.
+
 **Windows（官方支持）/ Windows (officially supported):**
 
 ```powershell
