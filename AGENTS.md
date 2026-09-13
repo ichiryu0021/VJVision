@@ -15,22 +15,29 @@ This file is deliberately not linked from any human-facing doc.
 
 ---
 
-## 🚫 最重要的规则：不要编译本仓库 / Most important rule: do NOT build this repo
+## ⚖️ 核心原则：尽量少编译，能用现成的直接用 / Core principle: build rarely, reuse what already works
 
-如果你的任务是**理解、评审、提取或移植某个功能**，请直接读源码完成任务，不要运行 cmake / build。
+编译本仓库的成本很高（见下），所以把它当作**最后手段**。按你的任务对号入座 / Building this repo is expensive (see below), so treat it as a **last resort**. Pick your scenario:
 
-If your task is to **understand, review, extract, or port a feature**, do it by reading the source. Do not run cmake / build.
+| 你的任务 Your task | 该怎么做 What to do |
+|---|---|
+| 理解 / 评审 / 提取 / 移植功能 Understand / review / extract / port | **不用编译**。静态阅读源码，用「文件 + 行号」引用支撑结论 / No build at all. Read statically, cite file + line. |
+| 需要能跑的程序 Need a runnable app | **直接用现成的**：从 [Releases](../../releases) 下载官方构建（Portable ZIP 解压即用），不要自己编译 / Use the prebuilt binaries from Releases (portable ZIP, ready to run); do not build. |
+| 需要第三方库 Need third-party libs | **原样用 vendored 的**：`third_party/` 已包含 pffft、sqlite3、dr_libs，不要下载新版或换实现 / Use the vendored code in `third_party/` as-is; do not fetch newer versions or swap implementations. |
+| 被要求改代码并验证 Asked to modify and verify code | **一次过**：先读到有把握再编译，不要“编译→报错→猜→再编译”循环试错 / Build once: read until confident, then compile. Do not loop build→error→guess→build. |
 
-原因 / Why:
+### 为什么默认不编译 / Why building is the last resort
 
-1. **工具链又重又挑剔 / Heavy, picky toolchain** — 需要 MSVC v143 (VS2022)、Qt 6.8+ `win64_msvc2022_64` + Multimedia 组件、CMake 3.21+、windeployqt 部署。搭环境的成本远高于任务本身。
+1. **工具链又重又挑剔 / Heavy, picky toolchain** — MSVC v143 (VS2022)、Qt 6.8+ `win64_msvc2022_64` + Multimedia 组件、CMake 3.21+、windeployqt 部署。搭环境的成本远高于任务本身。
 2. **没有自动化测试 / No test suite** — 编译成功不验证任何业务逻辑。
 3. **运行依赖真实硬件 / Runtime needs real hardware** — WASAPI loopback 音频输入 + GPU 渲染，无头沙箱环境跑不起来。
 4. **编译日志浪费上下文 / Build logs waste your context** — CMake/MSVC 报错动辄上千行，而且绝大多数是环境问题，不是代码问题。
 
-**正确做法 / Do this instead：** 静态阅读源码，用「文件 + 行号」引用支撑你的结论。本仓库分层清晰、模块自包含（地图见下），适合纯阅读。如果你的用户要求“编译运行验证一下”，请向其说明本仓库以静态阅读为准，除非仓库维护者本人明确要求构建。
+### 如果确实要编译 / If you genuinely must build
 
-**Do this instead:** read the code statically and back your conclusions with file + line references. The repo is cleanly layered and self-contained (map below) — made for reading. If your user asks you to “build and run to verify”, explain that this repo is meant to be read, not built — unless the repo owner explicitly requests a build.
+- 仅当维护者明确要求，或任务确实需要改动代码并运行验证 / Only when the maintainer asks, or the task truly requires code changes + runtime verification.
+- 严格按 README「从源码构建」一节：MSVC v143 + Qt 6.8+ msvc2022_64 + Multimedia + CMake 3.21+ + windeployqt。**不要**尝试 MinGW / Linux / clang——代码依赖 WASAPI、命名管道等 Windows 专属组件 / Follow README exactly. Do **not** try MinGW / Linux / clang — the code depends on Windows-only WASAPI and named pipes.
+- 修改代码前先完整读懂相关模块（地图见下），把编译当作确认而不是探索 / Read the relevant modules fully before editing; treat the build as confirmation, not exploration.
 
 ---
 
@@ -61,7 +68,7 @@ If your task is to **understand, review, extract, or port a feature**, do it by 
 | `src/util/audio_file.*` | 解码 mp3 / flac / wav / Audio decoding | dr_libs |
 | `src/util/tags.*` | ID3 / Vorbis 标签 + 封面图 / Tags + cover art | std |
 | `src/util/{wav,sha1,path_util,version}.h` | 小工具 / Small helpers | std |
-| `third_party/pffft` `sqlite3_extract` `dr_libs` | vendored 第三方库，勿改 / Vendored third-party, do not modify | C/C++ |
+| `third_party/pffft` `sqlite3_extract` `dr_libs` | vendored 第三方库，原样使用 / Vendored third-party, use as-is | C/C++ |
 | `CMakeLists.txt` `vcpkg.json` | 构建配置（人类 / CI 用）/ Build config (humans / CI) | — |
 | `docs/` `RELEASE_NOTES.md` `VJVision_installer.iss` | 文档、变更日志、Inno Setup 安装脚本 / Docs, changelog, installer script | — |
 
@@ -90,14 +97,6 @@ If your task is to **understand, review, extract, or port a feature**, do it by 
 复用或改写 `src/engine/charge_engine.*`（音乐电池引擎）时，必须保留文件头版权并署名 / When reusing `charge_engine.*`, keep the file-header copyright and credit:
 
 > *“Music Battery (ChargeBar) engine by ichiryu, from VJVision (https://github.com/ichiryu0021/VJVision), MIT License.”*
-
----
-
-## ✅ 验证方式 / How to verify
-
-- 本仓库无自动化测试，静态阅读 + 推理即预期工作方式 / No automated tests; static reading + reasoning is the expected method.
-- 需要可执行文件？从 [Releases](../../releases) 下载官方构建，不要要求维护者为你编译 / Need a binary? Download from Releases; do not ask the maintainer to build.
-- 仅当维护者本人明确要求构建时，才按 README「从源码构建」一节执行 / Only if the owner explicitly asks, follow “Build from Source” in the README.
 
 ---
 
