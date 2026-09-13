@@ -2,6 +2,6 @@
 
 本仓库给 AI 编码代理的完整说明在根目录 [AGENTS.md](../AGENTS.md)，开始任何工作前请先完整阅读它。
 
-核心规则 / Core rule：**不要编译本仓库**（no cmake / no build）。理解、评审、提取或移植功能一律通过静态阅读源码完成，结论用「文件 + 行号」引用支撑。详见 AGENTS.md。
+核心原则 / Core principle：**尽量少编译，能用现成的直接用**——理解 / 评审 / 移植靠静态阅读（结论用「文件 + 行号」引用）；需要能跑的程序直接用 [Releases](../../releases) 现成构建；third_party 原样使用；确需编译时一次过，不循环试错。详见 AGENTS.md。
 
-The full AI-agent guide lives in the root [AGENTS.md](../AGENTS.md) — read it in full before doing anything. Core rule: **do not build this repo** (no cmake / no build). Understand, review, extract, or port features by reading the source statically, and back conclusions with file + line references.
+The full AI-agent guide lives in the root [AGENTS.md](../AGENTS.md) — read it in full before doing anything. Core principle: **build rarely, reuse what already works** — understand / review / port by static reading (cite file + line); grab runnable binaries from Releases instead of building; use vendored third_party as-is; if a build is truly needed, get it right in one pass — no trial-and-error loops.
